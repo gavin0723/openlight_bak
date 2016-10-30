@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	REPO_URI_OVERWRITE_ENV_PREFIX = "OP_BUILD_URI="
+	REPO_URI_OVERWRITE_ENV_PREFIX = "OP_BUILD_URI_"
 )
 
 // Get the uri overwrites from flags and environments
@@ -26,7 +26,10 @@ func getRepositoryUriOverwrites(flags []string) (map[string]*uri.RepositoryRefer
 	var paths []string
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, REPO_URI_OVERWRITE_ENV_PREFIX) {
-			paths = append(paths, env[len(REPO_URI_OVERWRITE_ENV_PREFIX):])
+			idx := strings.Index(env, "=")
+			if idx != -1 {
+				paths = append(paths, env[idx+1:])
+			}
 		}
 	}
 	for _, flag := range flags {

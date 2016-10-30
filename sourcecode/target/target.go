@@ -16,6 +16,7 @@ import (
 var (
 	// The builder creators
 	BuilderCreators = map[string]func(s *spec.Target) (Builder, error){
+		BuilderTypePython:   PythonBuilderCreator,
 		BuilderTypeGolang:   GolangBuilderCreator,
 		BuilderTypeMakefile: MakefileBuilderCreator,
 		BuilderTypeShell:    ShellBuilderCreator,
@@ -24,6 +25,7 @@ var (
 	// The source code creators
 	SourceCodeCreators = map[string]func(s *spec.Target) (SourceCode, error){
 		SourceCodeTypeGolang: GolangSourceCodeCreator,
+		SourceCodeTypePython: PythonSourceCodeCreator,
 	}
 )
 

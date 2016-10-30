@@ -7,11 +7,13 @@
 package spec
 
 type PythonBuilder struct {
+	EntryScriptFile string `yaml:"entryScriptFile" json:"entryScriptFile"` // The entry script filename
+	Output          string `yaml:"output" json:"output"`                   // The output binary name
 }
 
 type PythonSourceCode struct {
-	Packages struct {
-		Package string `yaml:"package"`
-		Path    string `yaml:"path"`
-	} `yaml:"packages"`
+	Modules []struct {
+		Module string `yaml:"module" json:"module"` // The module name
+		Path   string `yaml:"path" json:"path"`     // The path
+	} `yaml:"modules" json:"modules"`
 }
