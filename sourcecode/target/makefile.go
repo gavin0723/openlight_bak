@@ -26,6 +26,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -119,7 +120,21 @@ func (this *MakefileBuilder) Build(ctx *TargetBuildContext) (*BuildResult, error
 		return nil, err
 	}
 	// Collect file artifact
-	collector := NewFileArtifactCollector(true, nil)
+	var excludes []*regexp.Regexp
+	if this.builderSpec != nil {
+		for _, exclude := range this.builderSpec.Output.Collect.Excludes {
+			exp, err := regexp.Compile(exclude)
+			if err != nil {
+				return nil, errors.New(fmt.Sprintf("Failed to compile exclude pattern [%s], error: %s", exclude, err))
+			}
+			excludes = append(excludes, exp)
+		}
+	}
+	recursive := false
+	if this.builderSpec != nil {
+		recursive = this.builderSpec.Output.Collect.Recursive
+	}
+	collector := NewFileArtifactCollector(recursive, excludes)
 	artifacts, err := collector.Collect(outputPath)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to collect artifacts, error: %s", err))

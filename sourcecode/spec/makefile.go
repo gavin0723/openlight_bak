@@ -10,4 +10,10 @@ type MakefileBuilder struct {
 	Target    string            `yaml:"target"`    // The make target
 	File      string            `yaml:"file"`      // The makefile filename
 	Variables map[string]string `yaml:"variables"` // The additional variables (which will be set by -e)
+	Output    struct {
+		Collect struct {
+			Recursive bool     `yaml:"recursive"`
+			Excludes  []string `yaml:"excludes"`
+		} `yaml:"collect"`
+	} `yaml:"output"`
 }
