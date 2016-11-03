@@ -274,7 +274,7 @@ func (this *DockerBuilder) buildDockerImage(c *dockerClient.Client, image *Docke
 		}
 		// Write build file
 		if ctx.Workspace.Verbose() {
-			ctx.Workspace.Logger.WriteInfoHeaderln(DockerBuilderLogHeader, "Add BUILD file")
+			ctx.Workspace.Logger.WriteInfoHeaderln(DockerBuilderLogHeader, "Add ", DockerBuildFileName, " file")
 		}
 		if data, err := json.Marshal(image); err != nil {
 			tarError = errors.New(fmt.Sprintf("Failed to marshal image to %s file, error: %s", DockerBuildFileName, err))
@@ -286,7 +286,7 @@ func (this *DockerBuilder) buildDockerImage(c *dockerClient.Client, image *Docke
 		// Write files
 		for _, f := range image.Files {
 			if ctx.Workspace.Verbose() {
-				ctx.Workspace.Logger.WriteInfoHeaderln(DockerBuilderLogHeader, "Add file from [%s] to [%s]", f.LocalName, f.TargetName)
+				ctx.Workspace.Logger.WriteInfoHeaderln(DockerBuilderLogHeader, "Add file from [", f.LocalName, "] to [", f.TargetName, "]")
 			}
 			if err := this.writePath2Tar(f.LocalName, f.TargetName, tarWriter); err != nil {
 				tarError = errors.New(fmt.Sprintf("Failed to write local path [%s] to target path [%s] in tar, error: %s", f.LocalName, f.TargetName, err))
@@ -308,7 +308,7 @@ func (this *DockerBuilder) buildDockerImage(c *dockerClient.Client, image *Docke
 		Remove:      true,
 		ForceRemove: true,
 		PullParent:  !this.builderSpec.NoPull,
-		NoCache:     !this.builderSpec.NoCache, // Please use "ADD BUILD /BUILD" before any commands that should not be cached instead of "nocache: true"
+		NoCache:     this.builderSpec.NoCache, // Please use "ADD BUILD /BUILD" before any commands that should not be cached instead of "nocache: true"
 	}
 	// Check tar error
 	if tarError != nil {
