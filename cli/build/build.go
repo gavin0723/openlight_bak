@@ -40,7 +40,7 @@ func startBuild(targetUris []*uri.TargetUri, ws *workspace.Workspace) error {
 	// Generate a build tag
 	buildTag, err := uri.NewTag()
 	if err != nil {
-		ws.Logger.WriteErrorHeaderln(CliLogHeader, "Failed to generte build tag, error: ", err)
+		ws.Logger.WriteErrorHeaderln(CliLogHeader, "Failed to generate build tag, error: ", err)
 		return cli.NewExitError(err.Error(), 1)
 	}
 	ws.Logger.WriteInfoHeaderln(CliLogHeader, "Build with tag ", buildTag)

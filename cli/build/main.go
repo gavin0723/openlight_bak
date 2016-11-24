@@ -17,7 +17,7 @@ const (
 func GetCommand() []cli.Command {
 	return []cli.Command{
 		{
-			Category: "build",
+			Category: "Builder",
 			Name:     "local-build",
 			Aliases:  []string{"lb"},
 			Usage:    "Force build with local dependencies. The same as 'op build --only-local' ",
@@ -30,8 +30,8 @@ func GetCommand() []cli.Command {
 			},
 		},
 		{
-			Category: "build",
-			Name:     "clean",
+			Category: "Builder",
+			Name:     "clean-build",
 			Usage:    "Clean the workspace",
 			Action:   runClean,
 		},

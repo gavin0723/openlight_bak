@@ -9,6 +9,7 @@ package main
 import (
 	"fmt"
 	"github.com/ops-openlight/openlight/cli/build"
+	"github.com/ops-openlight/openlight/cli/runner"
 	"gopkg.in/urfave/cli.v1"
 	"os"
 )
@@ -30,16 +31,23 @@ func main() {
 	app.Name = "op"
 	app.Usage = "Openlight CLI"
 	app.Version = Version
-	app.EnableBashCompletion = true
+	app.EnableBashCompletion = false
 	// Global flags
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
 			Name:  "verbose",
-			Usage: "Show verbose log",
+			Usage: "Show verbose log (debug log)",
+		},
+		cli.StringFlag{
+			Name:  "workdir",
+			Usage: "The openlight workdir",
 		},
 	}
-	// Add commands from build module
+	// Add commands from modules
 	for _, cmd := range build.GetCommand() {
+		app.Commands = append(app.Commands, cmd)
+	}
+	for _, cmd := range runner.GetCommand() {
 		app.Commands = append(app.Commands, cmd)
 	}
 	// Run it
