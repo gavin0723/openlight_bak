@@ -258,6 +258,15 @@ func (this *AppRunner) Clean(id string) error {
 	return os.RemoveAll(filepath.Join(this.rootPath, id))
 }
 
+func (this *AppRunner) GetLogFile(id string, stdout bool) string {
+	if stdout {
+		return filepath.Join(this.rootPath, id, InstanceLogStdoutName)
+	} else {
+		return filepath.Join(this.rootPath, id, InstanceLogStderrName)
+
+	}
+}
+
 func (this *AppRunner) loadInstances(idFilterFunc func(string) bool, instanceFilterFunc func(*AppInstance) bool) ([]*AppInstance, error) {
 	infos, err := ioutil.ReadDir(this.rootPath)
 	if err != nil {

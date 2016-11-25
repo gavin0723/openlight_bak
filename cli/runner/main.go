@@ -15,6 +15,7 @@ import (
 	"github.com/ops-openlight/openlight/runner"
 	"gopkg.in/urfave/cli.v1"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -54,6 +55,34 @@ func GetCommand() []cli.Command {
 				cli.BoolFlag{
 					Name:  "ignore-config-args,i",
 					Usage: "Ignore the arguments defined in config",
+				},
+			},
+		},
+		{
+			Category: "Runner",
+			Name:     "log",
+			Usage:    "Show the log of an application instance",
+			Action:   showlog,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "id,i",
+					Usage: "The application id to stop",
+				},
+				cli.StringFlag{
+					Name:  "app,p",
+					Usage: "The application name to stop",
+				},
+				cli.BoolFlag{
+					Name:  "stdout",
+					Usage: "Show the stdout log instead of stderr",
+				},
+				cli.BoolFlag{
+					Name:  "follow,f",
+					Usage: "Follow the log",
+				},
+				cli.IntFlag{
+					Name:  "lines,n",
+					Usage: "Output the last n lines of log instead of all",
 				},
 			},
 		},
@@ -187,6 +216,85 @@ func start(c *cli.Context) error {
 	if !background {
 		instance.Wait()
 	}
+	// Done
+	return nil
+}
+
+func showlog(c *cli.Context) error {
+	opc, err := opcli.NewFromCLI(c)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	// Load application config
+	appConfigs, err := loadRunnerApplications(opc)
+	if err != nil {
+		opc.Logger().LeveledPrintf(log.LevelError, "Failed to load runner configs, error: %s\n", err)
+		return cli.NewExitError("", 1)
+	}
+	// Get parameters
+	id := c.String("id")
+	app := c.String("app")
+	isStdout := c.Bool("stdout")
+	follow := c.Bool("follow")
+	lines := c.Int("lines")
+	if id == "" && app == "" {
+		opc.Logger().LeveledPrintln(log.LevelError, "Require either id or app")
+		return cli.NewExitError("", 1)
+	} else if id != "" && app != "" {
+		opc.Logger().LeveledPrintln(log.LevelError, "Require either id or app but not both")
+		return cli.NewExitError("", 1)
+	}
+	// Create the runner
+	r := runner.New(opc.WorkDir().GetRunnerPath())
+	if app != "" {
+		appConfig, ok := appConfigs[app]
+		if ok {
+			app = appConfig.Name
+		}
+		// Get id by app
+		instances, err := r.GetInstancesByName(app)
+		if err != nil {
+			opc.Logger().LeveledPrintf(log.LevelError, "Failed to get instances by name, error: %s\n", err)
+			return cli.NewExitError("", 1)
+		}
+		if len(instances) == 0 {
+			opc.Logger().LeveledPrintln(log.LevelError, "No instance found for this application")
+			return cli.NewExitError("", 1)
+		} else if len(instances) > 1 {
+			// Filter out the running one
+			var runningInstances []*runner.AppInstance
+			for _, instance := range instances {
+				if status, _ := instance.GetStatus(); status == runner.StatusRunning {
+					runningInstances = append(runningInstances, instance)
+				}
+			}
+			if len(runningInstances) == 1 {
+				// Use this running instance
+				id = runningInstances[0].ID
+			} else {
+				opc.Logger().LeveledPrintln(log.LevelError, "More than 1 instance found, cannot show log by application name")
+				return cli.NewExitError("", 1)
+			}
+		} else {
+			id = instances[0].ID
+		}
+	}
+	// Get the instance log file
+	filename := r.GetLogFile(id, isStdout)
+	var args []string
+	if lines > 0 {
+		args = append(args, "-n", fmt.Sprintf("%d", lines))
+	}
+	if follow {
+		args = append(args, "-f")
+	}
+	args = append(args, filename)
+	// Run the tail command
+	cmd := exec.Command("tail", args...)
+	cmd.Env = os.Environ()
+	cmd.Stdout = opc.OutputStream()
+	cmd.Stderr = opc.ErrorStream()
+	cmd.Run()
 	// Done
 	return nil
 }
