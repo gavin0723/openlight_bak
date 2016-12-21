@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	CliLogHeader = "Openlight CLI"
+	LogHeader = "CLI.Builder"
 )
 
 func GetCommand() []cli.Command {
@@ -21,19 +21,28 @@ func GetCommand() []cli.Command {
 			Name:     "local-build",
 			Aliases:  []string{"lb"},
 			Usage:    "Force build with local dependencies. The same as 'op build --only-local' ",
-			Action:   runLocalBuild,
+			Action:   LocalBuild,
 			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "output, o",
+					Value: "build",
+					Usage: "The output path",
+				},
+				cli.BoolFlag{
+					Name:  "disable-finder",
+					Usage: "Disable the repository local finder",
+				},
 				cli.StringSliceFlag{
-					Name:  "repository-path, p",
-					Usage: "Define the local repository path. Format: name:path",
+					Name:  "repository-remote-overwrite, w",
+					Usage: "Overwrite the repository remote (or local path). Format: uri:path",
 				},
 			},
 		},
 		{
 			Category: "Builder",
 			Name:     "clean-build",
-			Usage:    "Clean the workspace",
-			Action:   runClean,
+			Usage:    "Clean the build workspace. This will clean user ALL build data",
+			Action:   Clean,
 		},
 	}
 }

@@ -7,35 +7,22 @@
 package build
 
 import (
-	"github.com/ops-openlight/openlight"
-	ocli "github.com/ops-openlight/openlight/cli"
-	"github.com/ops-openlight/openlight/sourcecode/workspace"
+	opcli "github.com/ops-openlight/openlight/cli"
+	"github.com/ops-openlight/openlight/pkg/log"
+	"github.com/ops-openlight/openlight/pkg/sourcecode/builder"
 	"gopkg.in/urfave/cli.v1"
-	"os"
 )
 
-func runClean(c *cli.Context) error {
-	// Get verbose and logger
-	verbose := c.GlobalBool("verbose")
-	var level int
-	if verbose {
-		level = openlight.LogLevelAll
-	} else {
-		level = openlight.LogLevelInfo
-	}
-	logger := openlight.NewLogger(os.Stderr, level)
-	// Run the clean on both current path and git root path
-	p, err := os.Getwd()
+func Clean(c *cli.Context) error {
+	ws, err := opcli.GetWorkspace(c)
 	if err != nil {
-		logger.WriteErrorHeaderln(CliLogHeader, "Failed to get current directory, error: ", err)
+		return err
+	}
+	logger := ws.Logger.GetLoggerWithHeader(LogHeader)
+	// Run clean
+	if err := builder.CleanBuildData(ws); err != nil {
+		logger.LeveledPrintf(log.LevelError, "Failed to clean build data, error: %s\n", err)
 		return cli.NewExitError("", 1)
-	}
-	fs := workspace.NewUserWorkspaceFileSystem(p)
-	fs.Clean()
-	userPath, err := ocli.GetGitRootFromCurrentDirectory()
-	if err != nil {
-		fs := workspace.NewUserWorkspaceFileSystem(userPath)
-		fs.Clean()
 	}
 	// Done
 	return nil

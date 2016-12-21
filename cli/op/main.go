@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"github.com/ops-openlight/openlight/cli/build"
 	"github.com/ops-openlight/openlight/cli/runner"
+	"github.com/ops-openlight/openlight/pkg/workspace"
 	"gopkg.in/urfave/cli.v1"
 	"os"
 )
@@ -19,7 +20,6 @@ var (
 	buildCommit string
 	buildTime   string
 	buildTag    string
-	buildGraph  string
 	// The version string
 	Version = fmt.Sprintf("Branch [%s] Commit [%s] Build Time [%s] Tag [%s]", buildBranch, buildCommit, buildTime, buildTag)
 )
@@ -31,7 +31,6 @@ func main() {
 	app.Name = "op"
 	app.Usage = "Openlight CLI"
 	app.Version = Version
-	app.EnableBashCompletion = false
 	// Global flags
 	app.Flags = []cli.Flag{
 		cli.BoolFlag{
@@ -39,8 +38,23 @@ func main() {
 			Usage: "Show verbose log (debug log)",
 		},
 		cli.StringFlag{
-			Name:  "workdir",
-			Usage: "The openlight workdir",
+			Name:  "workdir-project-path",
+			Usage: "The openlight project workdir path",
+		},
+		cli.StringFlag{
+			Name:  "workdir-user-path",
+			Value: workspace.DefaultUserDirPath,
+			Usage: "The openlight user workdir path",
+		},
+		cli.StringFlag{
+			Name:  "workdir-global-path",
+			Value: workspace.DefaultGlobalDirPath,
+			Usage: "The openlight global workdir path",
+		},
+		cli.StringFlag{
+			Name:  "docker-uri",
+			Value: workspace.DefaultDockerServiceUri,
+			Usage: "The docker daemon uri",
 		},
 	}
 	// Add commands from modules
