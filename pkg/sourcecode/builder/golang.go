@@ -16,14 +16,15 @@ package builder
 import (
 	"errors"
 	"fmt"
-	"github.com/ops-openlight/openlight/pkg/artifact"
-	"github.com/ops-openlight/openlight/pkg/log"
-	"github.com/ops-openlight/openlight/pkg/sourcecode/spec"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/ops-openlight/openlight/pkg/artifact"
+	"github.com/ops-openlight/openlight/pkg/log"
+	"github.com/ops-openlight/openlight/pkg/sourcecode/spec"
 )
 
 const (
@@ -95,7 +96,7 @@ func (this *GolangSourceCodeBuilder) Build(target *spec.Target, env Environment,
 	}
 	logger := context.Workspace.Logger.GetLoggerWithHeader(GolangLogHeader)
 	// Create go build command
-	var args []string = []string{"build"}
+	args := []string{"build"}
 	// The output path
 	outputPath, err := context.Builder.EnsureTargetOutputPath(target)
 	if err != nil {
@@ -109,43 +110,34 @@ func (this *GolangSourceCodeBuilder) Build(target *spec.Target, env Environment,
 		context.Builder.Options.Tag,
 	))
 	// Add the build package
-	buildPackage := golangSpec.BuildPackage
-	if buildPackage == "" {
-		buildPackage = golangSpec.Package
+	buildPackages := golangSpec.BuildPackages
+	if len(buildPackages) == 0 {
+		buildPackages = []string{golangSpec.Package}
 	}
-	// The output
-	if golangSpec.Output != "" {
-		args = append(args, "-o", filepath.Join(outputPath, golangSpec.Output))
-	} else {
+	// For packages
+	for _, buildPackage := range buildPackages {
+		// The output
 		names := strings.Split(buildPackage, "/")
-		args = append(args, "-o", filepath.Join(outputPath, names[len(names)-1]))
-	}
-	// The build package
-	args = append(args, buildPackage)
-	// Create the command
-	var environVars []string
-	for _, e := range os.Environ() {
-		if !strings.HasPrefix(strings.ToLower(e), "gopath=") {
-			environVars = append(environVars, e)
+		buildArgs := append(args, "-o", filepath.Join(outputPath, names[len(names)-1]))
+		// The build package
+		buildArgs = append(buildArgs, buildPackage)
+		// Create the command
+		cmd := exec.Command("go", buildArgs...)
+		cmd.Dir = env.Path()
+		if context.Workspace.Verbose {
+			// Connect stdout and stderr
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+		} else {
+			// Ignore the stderr and stdout
+			cmd.Stdout = nil
+			cmd.Stderr = nil
 		}
-	}
-	environVars = append(environVars, fmt.Sprintf("GOPATH=%s", env.Path()))
-	cmd := exec.Command("go", args...)
-	cmd.Dir = env.Path()
-	cmd.Env = environVars
-	if context.Workspace.Verbose {
-		// Connect stdout and stderr
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-	} else {
-		// Ignore the stderr and stdout
-		cmd.Stdout = nil
-		cmd.Stderr = nil
-	}
-	// Run go build
-	logger.LeveledPrintf(log.LevelDebug, "Run command: %s %s\n", cmd.Path, strings.Join(cmd.Args, " "))
-	if err := cmd.Run(); err != nil {
-		return err
+		// Run go build
+		logger.LeveledPrintf(log.LevelDebug, "Run command: %s %s\n", cmd.Path, strings.Join(cmd.Args, " "))
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
 	// Good, create the artifact
 	artifactName := golangSpec.Name
