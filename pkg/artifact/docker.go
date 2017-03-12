@@ -42,7 +42,7 @@ func (this *DockerArtifact) GetName() string {
 }
 
 func (this *DockerArtifact) GetType() string {
-	return ArtifactTypeFile
+	return ArtifactTypeDocker
 }
 
 func (this *DockerArtifact) GetAttr(name string) interface{} {
