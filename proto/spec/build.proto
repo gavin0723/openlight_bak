@@ -1,0 +1,272 @@
+// The spec protobuf definition
+
+syntax = "proto3";
+
+package openlight.spec;
+
+option go_package = "spec";
+option java_multiple_files = true;
+option java_outer_classname = "BuildProto";
+option java_package = "com.github.openlight.spec";
+
+// Package
+message Package {
+    // Name
+    string name = 1;
+    // Remote (URI)
+    string remote = 2;
+    // References
+    map<string, Reference> references = 3;
+    // Targets
+    map<string, Target> targets = 4;
+    // Options
+    PackageOptions options = 15;
+}
+
+// Package options
+message PackageOptions {
+    // Default targets (to build)
+    repeated string defaultTargets = 1;
+}
+
+// Reference
+message Reference {
+    // Name
+    string name = 1;
+    // Remote
+    string remote = 2;
+    // Local finders
+    repeated LocalFinder localFinders = 3;
+}
+
+// Local finder
+message LocalFinder {
+    // Finder name
+    string name = 1;
+    // Finders
+    oneof Finder {
+        // Python local finder
+        PythonLocalFinder python = 2;
+    }
+}
+
+// Python local finder
+message PythonLocalFinder {
+    // Python module name
+    string module = 1;
+    // The number of parent dirs
+    int32 parent = 2;
+}
+
+// Target
+message Target {
+    // Name
+    string name = 1;
+    // Dependencies
+    repeated Dependency dependencies = 2;
+    // Target
+    oneof Target {
+        // Command
+        CommandTarget command = 5;
+        // Go binary
+        GoBinaryTarget goBinary = 6;
+        // Python lib
+        PythonLibTarget pythonLib = 7;
+        // Docker image
+        DockerImageTarget dockerImage = 8;
+    }
+}
+
+// Dependency
+message Dependency {
+    oneof Dependency {
+        // Target
+        TargetDependency target = 1;
+        // Go
+        GoDependency go = 2;
+        // Pip
+        PipDependency pip = 3;
+    }
+    // Options
+    DependencyOptions options = 15;
+}
+
+// Dependency options
+message DependencyOptions {
+    // Build or not
+    bool build = 1;
+}
+
+// Target dependency
+message TargetDependency {
+    // Package
+    string package = 1;
+    // Target
+    string target = 2;
+}
+
+// Go dependency
+message GoDependency {
+    // Go package
+    string package = 1;
+}
+
+// Pip dependency
+message PipDependency {
+    // Pip module
+    string module = 1;
+}
+
+// Command target
+message CommandTarget {
+    // Args
+    repeated string args = 1;
+    // Work dir
+    string workdir = 2;
+    // Output dir
+    string output = 3;
+}
+
+// Go bianry target
+message GoBinaryTarget {
+    // Package
+    string package = 1;
+    // Output name
+    string output = 2;
+}
+
+// Python lib target
+message PythonLibTarget {
+    // Work dir
+    string workdir = 1;
+    // Setup filename
+    string setup = 2;
+}
+
+// Docker image target
+message DockerImageTarget {
+    // Repository
+    string repository = 1;
+    // Image name
+    string imageName = 2;
+    // Commands
+    repeated DockerImageBuildCommand commands = 3;
+}
+
+message DockerImageBuildCommand {
+    // From command
+    message From {
+        // Name
+        string name = 1;
+    }
+    // Label command
+    message Label {
+        // Key
+        string key = 1;
+        // Value
+        string value = 2;
+    }
+    // Add command
+    message Add {
+        // File
+        FileSource file = 1;
+        // Path
+        string path = 2;
+    }
+    // Copy command
+    message Copy {
+        // File
+        FileSource file = 1;
+        // Path
+        string path = 2;
+    }
+    // Run command
+    message Run {
+        // Command
+        string command = 1;
+    }
+    // Entrypoint command
+    message Entrypoint {
+        // Args
+        repeated string args = 1;
+    }
+    // Expose command
+    message Expose {
+        // Ports
+        repeated int32 ports = 1;
+    }
+    // Volume command
+    message Volume {
+        // Paths
+        repeated string paths = 1;
+    }
+    // User command
+    message User {
+        // Name
+        string name = 1;
+    }
+    // Workdir command
+    message Workdir {
+        // Path
+        string path = 1;
+    }
+    // Env command
+    message Env {
+        // Key
+        string key = 1;
+        // Value
+        string value = 2;
+    }
+    // Command
+    oneof Command {
+        // From
+        From from = 1;
+        // Label
+        Label label = 2;
+        // Add
+        Add add = 3;
+        // Copy
+        Copy copy = 4;
+        // Run
+        Run run = 5;
+        // Entrypoint
+        Entrypoint entrypoint = 6;
+        // Expose
+        Expose expose = 7;
+        // Volume
+        Volume volume = 8;
+        // User
+        User user = 9;
+        // Workdir
+        Workdir workdir = 10;
+        // Env
+        Env env = 11;
+    }
+}
+
+// File source
+message FileSource {
+    // Source
+    oneof Source {
+        // File
+        File file = 1;
+        // Artifact
+        Artifact artifact = 2;
+    }
+}
+
+// File
+message File {
+    // Package
+    string package = 1;
+    // Filename
+    string filename = 2;
+}
+
+// Artifact
+message Artifact {
+    // Package
+    string package = 1;
+    // Target
+    string target = 2;
+}

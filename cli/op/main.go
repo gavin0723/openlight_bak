@@ -8,11 +8,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/ops-openlight/openlight/cli/build"
-	"github.com/ops-openlight/openlight/cli/runner"
-	"github.com/ops-openlight/openlight/pkg/workspace"
-	"gopkg.in/urfave/cli.v1"
 	"os"
+
+	"github.com/ops-openlight/openlight/cli/op/build"
+	"github.com/ops-openlight/openlight/cli/op/spec"
+	"gopkg.in/urfave/cli.v1"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 	buildCommit string
 	buildTime   string
 	buildTag    string
-	// The version string
+	// Version The version string
 	Version = fmt.Sprintf("Branch [%s] Commit [%s] Build Time [%s] Tag [%s]", buildBranch, buildCommit, buildTime, buildTag)
 )
 
@@ -37,31 +37,12 @@ func main() {
 			Name:  "verbose",
 			Usage: "Show verbose log (debug log)",
 		},
-		cli.StringFlag{
-			Name:  "workdir-project-path",
-			Usage: "The openlight project workdir path",
-		},
-		cli.StringFlag{
-			Name:  "workdir-user-path",
-			Value: workspace.DefaultUserDirPath,
-			Usage: "The openlight user workdir path",
-		},
-		cli.StringFlag{
-			Name:  "workdir-global-path",
-			Value: workspace.DefaultGlobalDirPath,
-			Usage: "The openlight global workdir path",
-		},
-		cli.StringFlag{
-			Name:  "docker-uri",
-			Value: workspace.DefaultDockerServiceUri,
-			Usage: "The docker daemon uri",
-		},
 	}
 	// Add commands from modules
-	for _, cmd := range build.GetCommand() {
+	for _, cmd := range build.GetCommands() {
 		app.Commands = append(app.Commands, cmd)
 	}
-	for _, cmd := range runner.GetCommand() {
+	for _, cmd := range spec.GetCommands() {
 		app.Commands = append(app.Commands, cmd)
 	}
 	// Run it
