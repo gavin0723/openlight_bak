@@ -12,8 +12,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/ops-openlight/openlight/pkg/log"
-	"github.com/ops-openlight/openlight/pkg/workspace"
 	"io"
 	"io/ioutil"
 	"os"
@@ -22,90 +20,12 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/ops-openlight/openlight/pkg/log"
 )
-
-const (
-	LogHeader = "Runner"
-
-	StatusRunning = 0
-	StatusExited  = 1
-	StatusError   = 2
-
-	InstanceInfoFileName  = "info.json"
-	InstanceLogStderrName = "stderr.log"
-	InstanceLogStdoutName = "stdout.log"
-
-	SignalInt  = 2
-	SignalQuit = 3
-	SignalKill = 9
-)
-
-type AppRunner struct {
-	ws       *workspace.Workspace
-	logger   log.Logger
-	rootPath string
-	Apps     map[string]*RunnerAppSpec
-}
-
-func New(ws *workspace.Workspace) (*AppRunner, error) {
-	if ws == nil {
-		return nil, errors.New("Require workspace")
-	}
-	// Create the runner
-	path, err := ws.Dir.User.GetPath("runner")
-	if err != nil {
-		return nil, err
-	}
-	runner := &AppRunner{
-		ws:       ws,
-		logger:   ws.Logger.GetLoggerWithHeader(LogHeader),
-		rootPath: path,
-	}
-	// Load the spec
-	if err := runner.loadRunnerSpec(); err != nil {
-		return nil, err
-	}
-	// Done
-	return runner, nil
-}
-
-// Load the runner spec from three places:
-// 	- Current project directory: .op.runner.yaml
-// 	- User config directory: <user>/spec/runner.yaml
-// 	- Global config directory: <global>/spec/runner.yaml
-func (this *AppRunner) loadRunnerSpec() error {
-	var filenames []string = []string{
-		filepath.Join(this.ws.Dir.Global.RootPath(), "spec", "runner.yaml"),
-		filepath.Join(this.ws.Dir.User.RootPath(), "spec", "runner.yaml"),
-		filepath.Join(this.ws.Dir.Project.RootPath(), SpecFileName),
-	}
-	apps := make(map[string]*RunnerAppSpec)
-	for _, filename := range filenames {
-		if _, err := os.Stat(filename); err == nil {
-			spec, err := LoadRunnerSpecFromFile(filename)
-			if err != nil {
-				this.logger.LeveledPrintf(log.LevelWarn, "Failed to load runner spec file [%s] error: %s", filename, err)
-			} else {
-				// Loaded
-				for name, appSpec := range spec.Apps {
-					apps[name] = appSpec
-				}
-			}
-		}
-	}
-	this.Apps = apps
-	// Write debug
-	if this.ws.Verbose {
-		for name, appSpec := range apps {
-			this.logger.LeveledPrintf(log.LevelDebug, "Load application [%s] with command: %s", name, appSpec.Command)
-		}
-	}
-	// Done
-	return nil
-}
 
 // List all instances
-func (this *AppRunner) List(onlyRunning bool) ([]*AppInstance, error) {
+func (this *CommandRunner) List(onlyRunning bool) ([]*AppInstance, error) {
 	if !onlyRunning {
 		return this.loadInstances(nil, nil)
 	} else {
@@ -117,7 +37,7 @@ func (this *AppRunner) List(onlyRunning bool) ([]*AppInstance, error) {
 }
 
 // Cleanup will remove all stopped instances
-func (this *AppRunner) CleanAll() error {
+func (this *CommandRunner) CleanAll() error {
 	instances, err := this.List(false)
 	if err != nil {
 		return err
@@ -135,7 +55,7 @@ func (this *AppRunner) CleanAll() error {
 	return nil
 }
 
-func (this *AppRunner) GetInstance(id string) (*AppInstance, error) {
+func (this *CommandRunner) GetInstance(id string) (*AppInstance, error) {
 	instances, err := this.loadInstances(func(_id string) bool {
 		return _id == id
 	}, nil)
@@ -148,11 +68,11 @@ func (this *AppRunner) GetInstance(id string) (*AppInstance, error) {
 	}
 }
 
-func (this *AppRunner) RemoveInstance(id string) error {
+func (this *CommandRunner) RemoveInstance(id string) error {
 	return os.RemoveAll(filepath.Join(this.rootPath, id))
 }
 
-func (this *AppRunner) GetInstancesByName(name string) ([]*AppInstance, error) {
+func (this *CommandRunner) GetInstancesByName(name string) ([]*AppInstance, error) {
 	if appSpec := this.Apps[name]; appSpec != nil {
 		name = appSpec.Name
 	}
@@ -161,7 +81,7 @@ func (this *AppRunner) GetInstancesByName(name string) ([]*AppInstance, error) {
 	})
 }
 
-func (this *AppRunner) GetRunningInstancesByName(name string) ([]*AppInstance, error) {
+func (this *CommandRunner) GetRunningInstancesByName(name string) ([]*AppInstance, error) {
 	if appSpec := this.Apps[name]; appSpec != nil {
 		name = appSpec.Name
 	}
@@ -182,7 +102,7 @@ type AppStartOptions struct {
 	IgnoreSpecArgs bool     `json:"ignoreSpecArgs"`
 }
 
-func (this *AppRunner) Start(name string, command string, options AppStartOptions) (*AppInstance, error) {
+func (this *CommandRunner) Start(name string, command string, options AppStartOptions) (*AppInstance, error) {
 	if appSpec := this.Apps[name]; appSpec != nil {
 		name = appSpec.Name
 		// Get parameters from spec
@@ -308,7 +228,7 @@ func (this *AppRunner) Start(name string, command string, options AppStartOption
 	return &instance, nil
 }
 
-func (this *AppRunner) Stop(id string, clean bool) error {
+func (this *CommandRunner) Stop(id string, clean bool) error {
 	instance, err := this.GetInstance(id)
 	if err != nil {
 		return err
@@ -328,7 +248,7 @@ func (this *AppRunner) Stop(id string, clean bool) error {
 	return nil
 }
 
-func (this *AppRunner) Restart(id string, clean bool) (*AppInstance, error) {
+func (this *CommandRunner) Restart(id string, clean bool) (*AppInstance, error) {
 	instance, err := this.GetInstance(id)
 	if err != nil {
 		return nil, err
@@ -347,11 +267,11 @@ func (this *AppRunner) Restart(id string, clean bool) (*AppInstance, error) {
 	return this.Start(instance.Name, instance.Command, instance.Options)
 }
 
-func (this *AppRunner) Clean(id string) error {
+func (this *CommandRunner) Clean(id string) error {
 	return os.RemoveAll(filepath.Join(this.rootPath, id))
 }
 
-func (this *AppRunner) GetLogFile(id string, stdout bool) string {
+func (this *CommandRunner) GetLogFile(id string, stdout bool) string {
 	if stdout {
 		return filepath.Join(this.rootPath, id, InstanceLogStdoutName)
 	} else {
@@ -360,7 +280,7 @@ func (this *AppRunner) GetLogFile(id string, stdout bool) string {
 	}
 }
 
-func (this *AppRunner) loadInstances(idFilterFunc func(string) bool, instanceFilterFunc func(*AppInstance) bool) ([]*AppInstance, error) {
+func (this *CommandRunner) loadInstances(idFilterFunc func(string) bool, instanceFilterFunc func(*AppInstance) bool) ([]*AppInstance, error) {
 	infos, err := ioutil.ReadDir(this.rootPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -392,7 +312,7 @@ func (this *AppRunner) loadInstances(idFilterFunc func(string) bool, instanceFil
 	return instances, nil
 }
 
-func (this *AppRunner) getNextRandomID() (string, error) {
+func (this *CommandRunner) getNextRandomID() (string, error) {
 	for {
 		idBytes := make([]byte, 8)
 		if _, err := rand.Read(idBytes); err != nil {

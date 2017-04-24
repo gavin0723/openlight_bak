@@ -7,6 +7,8 @@ package build
 import (
 	"github.com/yuin/gopher-lua"
 
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
 )
 
@@ -87,6 +89,51 @@ func NewTarget(luaTypeName, name string, options *lua.LTable) *Target {
 	return &target
 }
 
+// GetProto returns the protobuf object
+func (target *Target) GetProto() (*pbSpec.Target, error) {
+	var pbTarget pbSpec.Target
+	pbTarget.Name = target.Name
+	// Get dependencies
+	for _, dep := range target.Dependencies {
+		pbDeps, err := dep.GetProtos()
+		if err != nil {
+			return nil, err
+		}
+		pbTarget.Dependencies = append(pbTarget.Dependencies, pbDeps...)
+	}
+	// Check type
+	if target.GoBinary != nil {
+		// Go binary
+		goBinary, err := target.GoBinary.GetProto(target.GetOptions())
+		if err != nil {
+			return nil, err
+		}
+		pbTarget.Target = &pbSpec.Target_GoBinary{
+			GoBinary: goBinary,
+		}
+	} else if target.PythonLib != nil {
+		// Python lib
+		pythonLib, err := target.PythonLib.GetProto(target.GetOptions())
+		if err != nil {
+			return nil, err
+		}
+		pbTarget.Target = &pbSpec.Target_PythonLib{
+			PythonLib: pythonLib,
+		}
+	} else if target.DockerImage != nil {
+		// Docker image
+		dockerImage, err := target.DockerImage.GetProto(target.GetOptions())
+		if err != nil {
+			return nil, err
+		}
+		pbTarget.Target = &pbSpec.Target_DockerImage{
+			DockerImage: dockerImage,
+		}
+	}
+	// Done
+	return &pbTarget, nil
+}
+
 // CommandTarget represents the command target of build package
 type CommandTarget struct {
 	Args []string
@@ -117,6 +164,17 @@ func NewGoBinaryTarget(name, pkg string, options *lua.LTable) *Target {
 	return target
 }
 
+// GetProto returns the protobuf object
+func (target *GoBinaryTarget) GetProto(options *lua.LTable) (*pbSpec.GoBinaryTarget, error) {
+	var err error
+	var pbTarget pbSpec.GoBinaryTarget
+	pbTarget.Package = target.Package
+	if pbTarget.Output, err = LUA.TryGetStringFromTable(options, "output", ""); err != nil {
+		return nil, err
+	}
+	return &pbTarget, nil
+}
+
 // PythonLibTarget represents the python library target of build package
 type PythonLibTarget struct{}
 
@@ -126,6 +184,19 @@ func NewPythonLibTarget(name string, options *lua.LTable) *Target {
 	target.PythonLib = &PythonLibTarget{}
 	// Done
 	return target
+}
+
+// GetProto returns the protobuf object
+func (target *PythonLibTarget) GetProto(options *lua.LTable) (*pbSpec.PythonLibTarget, error) {
+	var err error
+	var pbTarget pbSpec.PythonLibTarget
+	if pbTarget.Setup, err = LUA.TryGetStringFromTable(options, "setup", ""); err != nil {
+		return nil, err
+	}
+	if pbTarget.Workdir, err = LUA.TryGetStringFromTable(options, "workdir", ""); err != nil {
+		return nil, err
+	}
+	return &pbTarget, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

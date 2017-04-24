@@ -8,6 +8,8 @@ import (
 	"github.com/yuin/gopher-lua"
 
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
+
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 )
 
 // Exposed lua infos
@@ -63,6 +65,23 @@ func RegisterPipDependencyType(L *lua.LState, mod *lua.LTable) {
 // Dependency defines the dependency interface
 type Dependency interface {
 	LUA.Object
+	// GetProto returns the protobuf object
+	GetProtos() ([]*pbSpec.Dependency, error)
+}
+
+func getDependencyOptionsProto(options *lua.LTable) (*pbSpec.DependencyOptions, error) {
+	var pbOptions pbSpec.DependencyOptions
+	if options != nil {
+		build, err := LUA.TryGetBoolFromTable(options, "build", false)
+		if err != nil {
+			return nil, err
+		}
+		if build {
+			pbOptions.Build = true
+		}
+	}
+	// Done
+	return &pbOptions, nil
 }
 
 // TargetDependency represents the target dependency
@@ -83,6 +102,24 @@ func NewTargetDependency(pkg, target string, options *lua.LTable) *TargetDepende
 	return &dep
 }
 
+// GetProtos returns the protobuf object
+func (dep *TargetDependency) GetProtos() ([]*pbSpec.Dependency, error) {
+	var pbDep pbSpec.Dependency
+	pbDep.Dependency = &pbSpec.Dependency_Target{
+		Target: &pbSpec.TargetDependency{
+			Package: dep.Package,
+			Target:  dep.Target,
+		},
+	}
+	var err error
+	pbDep.Options, err = getDependencyOptionsProto(dep.GetOptions())
+	if err != nil {
+		return nil, err
+	}
+	// Done
+	return []*pbSpec.Dependency{&pbDep}, nil
+}
+
 // GoDependency represents the go dependency
 type GoDependency struct {
 	LUA.Object
@@ -99,6 +136,33 @@ func NewGoDependency(packages []string, options *lua.LTable) *GoDependency {
 	return &dep
 }
 
+// GetProtos returns the protobuf object
+func (dep *GoDependency) GetProtos() ([]*pbSpec.Dependency, error) {
+	var pbDeps []*pbSpec.Dependency
+	// Get options
+	pbOptions, err := getDependencyOptionsProto(dep.GetOptions())
+	if err != nil {
+		return nil, err
+	}
+	// Get dependencies
+	var pkgNames = make(map[string]bool)
+	for _, pkg := range dep.Packages {
+		if pkg != "" && !pkgNames[pkg] {
+			pbDeps = append(pbDeps, &pbSpec.Dependency{
+				Dependency: &pbSpec.Dependency_Go{
+					Go: &pbSpec.GoDependency{
+						Package: pkg,
+					},
+				},
+				Options: pbOptions,
+			})
+			pkgNames[pkg] = true
+		}
+	}
+	// Done
+	return pbDeps, nil
+}
+
 // PipDependency represents the pip dependency
 type PipDependency struct {
 	LUA.Object
@@ -113,6 +177,33 @@ func NewPipDependency(modules []string, options *lua.LTable) *PipDependency {
 	dep.Object = LUA.NewObject(LUATypePipDependency, options, Dependency(&dep))
 	// Done
 	return &dep
+}
+
+// GetProtos returns the protobuf object
+func (dep *PipDependency) GetProtos() ([]*pbSpec.Dependency, error) {
+	var pbDeps []*pbSpec.Dependency
+	// Get options
+	pbOptions, err := getDependencyOptionsProto(dep.GetOptions())
+	if err != nil {
+		return nil, err
+	}
+	// Get dependencies
+	var moduleNames = make(map[string]bool)
+	for _, module := range dep.Modules {
+		if module != "" && !moduleNames[module] {
+			pbDeps = append(pbDeps, &pbSpec.Dependency{
+				Dependency: &pbSpec.Dependency_Pip{
+					Pip: &pbSpec.PipDependency{
+						Module: module,
+					},
+				},
+				Options: pbOptions,
+			})
+			moduleNames[module] = true
+		}
+	}
+	// Done
+	return pbDeps, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

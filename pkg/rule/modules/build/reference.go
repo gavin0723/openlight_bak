@@ -9,6 +9,8 @@ import (
 
 	"github.com/yuin/gopher-lua"
 
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
 )
 
@@ -50,6 +52,22 @@ func NewReference(name, remote string, localFinders []LocalFinder, options *lua.
 	ref.Object = LUA.NewObject(LUATypeReference, options, &ref)
 	// Done
 	return &ref
+}
+
+// GetProto returns the protobuf object
+func (ref *Reference) GetProto() (*pbSpec.Reference, error) {
+	var pbReference pbSpec.Reference
+	pbReference.Name = ref.Name
+	pbReference.Remote = ref.Remote
+	for _, finder := range ref.LocalFinders {
+		pbFinder, err := finder.GetProto()
+		if err != nil {
+			return nil, err
+		}
+		pbReference.LocalFinders = append(pbReference.LocalFinders, pbFinder)
+	}
+	// Done
+	return &pbReference, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

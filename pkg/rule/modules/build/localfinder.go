@@ -5,7 +5,11 @@
 package build
 
 import (
+	"fmt"
+
 	"github.com/yuin/gopher-lua"
+
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
 )
@@ -42,6 +46,8 @@ type LocalFinder interface {
 	LUA.Object
 	// GetName returns name
 	GetName() string
+	// GetProto returns the protobuf object
+	GetProto() (*pbSpec.LocalFinder, error)
 }
 
 // PythonLocalFinder represents python local finder
@@ -65,6 +71,29 @@ func NewPythonLocalFinder(name, module string, options *lua.LTable) *PythonLocal
 // GetName returns name
 func (finder *PythonLocalFinder) GetName() string {
 	return finder.Name
+}
+
+// GetProto returns the protobuf object
+func (finder *PythonLocalFinder) GetProto() (*pbSpec.LocalFinder, error) {
+	// Get options
+	var parent = 0
+	if options := finder.GetOptions(); options != nil {
+		var err error
+		if parent, err = LUA.GetIntFromTable(options, "parent"); err != nil {
+			return nil, fmt.Errorf("Failed to get options [parent], error: %s", err)
+		}
+	}
+	// Create protobuf object
+	var pbFinder pbSpec.LocalFinder
+	pbFinder.Name = finder.Name
+	pbFinder.Finder = &pbSpec.LocalFinder_Python{
+		Python: &pbSpec.PythonLocalFinder{
+			Module: finder.Module,
+			Parent: int32(parent),
+		},
+	}
+	// Done
+	return &pbFinder, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

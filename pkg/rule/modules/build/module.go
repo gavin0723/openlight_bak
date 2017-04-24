@@ -87,7 +87,7 @@ func (m *_Module) Packages() []*Package {
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////
 
-// LUAFuncGetPackage defines package.target in lua
+// LUAFuncGetPackage defines build.getPackage in lua
 func (m *_Module) LUAFuncGetPackage(L *lua.LState) int {
 	if L.GetTop() != 1 {
 		L.ArgError(0, "Invalid arguments")
@@ -102,7 +102,7 @@ func (m *_Module) LUAFuncGetPackage(L *lua.LState) int {
 	return 0
 }
 
-// LUAFuncAddPackage defines package.target in lua
+// LUAFuncAddPackage defines build.addPackage in lua
 func (m *_Module) LUAFuncAddPackage(L *lua.LState) int {
 	for i := 1; i <= L.GetTop(); i++ {
 		ud := L.CheckUserData(i)
@@ -124,7 +124,7 @@ func (m *_Module) LUAFuncAddPackage(L *lua.LState) int {
 	return 0
 }
 
-// LUAFuncDeletePackage defines package.target in lua
+// LUAFuncDeletePackage defines build.deletePackage in lua
 func (m *_Module) LUAFuncDeletePackage(L *lua.LState) int {
 	for i := 1; i < L.GetTop(); i++ {
 		delete(m.packages, L.CheckString(i))

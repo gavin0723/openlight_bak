@@ -1,4 +1,4 @@
-// The spec protobuf definition
+// The spec protobuf build definition
 
 syntax = "proto3";
 

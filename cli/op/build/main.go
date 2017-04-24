@@ -15,7 +15,7 @@ func GetCommands() []cli.Command {
 	return []cli.Command{
 		{
 			Name:  "build",
-			Usage: "Build",
+			Usage: "Build packages and targets",
 		},
 	}
 }

@@ -10,12 +10,12 @@ import (
 	"gopkg.in/urfave/cli.v1"
 )
 
-// GetCommands Get build commands
+// GetCommands gets spec commands
 func GetCommands() []cli.Command {
 	return []cli.Command{
 		{
 			Name:  "spec",
-			Usage: "Openlight Spec File Utility",
+			Usage: "Spec File Utility",
 			Subcommands: []cli.Command{
 				{
 					Name:  "parse",

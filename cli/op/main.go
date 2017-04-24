@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/ops-openlight/openlight/cli/op/build"
+	"github.com/ops-openlight/openlight/cli/op/runner"
 	"github.com/ops-openlight/openlight/cli/op/spec"
 	"gopkg.in/urfave/cli.v1"
 )
@@ -39,12 +40,9 @@ func main() {
 		},
 	}
 	// Add commands from modules
-	for _, cmd := range build.GetCommands() {
-		app.Commands = append(app.Commands, cmd)
-	}
-	for _, cmd := range spec.GetCommands() {
-		app.Commands = append(app.Commands, cmd)
-	}
+	app.Commands = append(app.Commands, spec.GetCommands()...)
+	app.Commands = append(app.Commands, build.GetCommands()...)
+	app.Commands = append(app.Commands, runner.GetCommands()...)
 	// Run it
 	app.Run(os.Args)
 }

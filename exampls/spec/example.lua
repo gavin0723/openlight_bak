@@ -13,6 +13,9 @@
 
 -- Require
 build = require("build")
+runner = require("runner")
+
+-- ---------------------------------------------------------------------- Build ----------------------------------------------------------------------
 
 -- Define the package
 -- Format: name, remote uri, options. options is optional.
@@ -172,3 +175,11 @@ pkg:target("all"):dependent(
     build.TargetDependency.new("pypkg", { build = true }),
     build.TargetDependency.new("image1", { build = true })
     )
+
+-- ---------------------------------------------------------------------- Build ----------------------------------------------------------------------
+
+cmd = runner.Command.new("test", "This is a test run command", { "python", "-m", "test" })
+cmd:options().workdir = "./test/"
+cmd:options().envs = { "TEST1=VALUE1", "TEST2=VALUE2" }
+
+runner.addCommand(cmd)

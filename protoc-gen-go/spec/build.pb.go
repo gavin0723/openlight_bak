@@ -7,6 +7,7 @@ Package spec is a generated protocol buffer package.
 
 It is generated from these files:
 	spec/build.proto
+	spec/runner.proto
 
 It has these top-level messages:
 	Package
@@ -28,6 +29,10 @@ It has these top-level messages:
 	FileSource
 	File
 	Artifact
+	RunCommand
+	RunProcess
+	RunProcessState
+	RunProcessLog
 */
 package spec
 

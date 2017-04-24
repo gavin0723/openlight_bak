@@ -1,0 +1,56 @@
+// The spec protobuf runner definition
+
+syntax = "proto3";
+
+package openlight.spec;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "spec";
+option java_multiple_files = true;
+option java_outer_classname = "RunnerProto";
+option java_package = "com.github.openlight.spec";
+
+// The run command
+message RunCommand {
+    // ID
+    string id = 1;
+    // Name
+    string name = 2;
+    // (Command) arguments
+    repeated string args = 3;
+    // Workdir
+    string workdir = 4;
+    // Environment variables
+    repeated string envs = 5;
+}
+
+// The running process
+message RunProcess {
+    // The id
+    string id = 1;
+    // Process state
+    RunProcessState state = 2;
+    // The run command of this process
+    RunCommand command = 3;
+    // The log
+    RunProcessLog log = 4;
+}
+
+// State of run process
+message RunProcessState {
+    // The pid
+    int32 pid = 1;
+    // The workdir (absolute path)
+    string workdir = 3;
+    // The start time
+    google.protobuf.Timestamp startTime = 4;
+}
+
+// Run process log
+message RunProcessLog {
+    // Stdout log
+    string stdout = 1;
+    // Stderr log
+    string stderr = 2;
+}

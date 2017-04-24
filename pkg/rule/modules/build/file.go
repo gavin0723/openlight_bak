@@ -7,6 +7,8 @@ package build
 import (
 	"github.com/yuin/gopher-lua"
 
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
 )
 
@@ -28,6 +30,8 @@ var ArtifactLUAFuncs = map[string]lua.LGFunction{}
 // FileSource represents a file source
 type FileSource interface {
 	LUA.Object
+	// GetProto returns the protobuf object
+	GetProto() (*pbSpec.FileSource, error)
 }
 
 // RegisterFileType registers package type in lua
@@ -68,6 +72,18 @@ func NewFile(pkg string, filename string, options *lua.LTable) *File {
 	return &file
 }
 
+// GetProto returns the protobuf object
+func (f *File) GetProto() (*pbSpec.FileSource, error) {
+	var pbFileSource pbSpec.FileSource
+	pbFileSource.Source = &pbSpec.FileSource_File{
+		File: &pbSpec.File{
+			Package:  f.Package,
+			Filename: f.Filename,
+		},
+	}
+	return &pbFileSource, nil
+}
+
 // Artifact represents an artifact
 type Artifact struct {
 	LUA.Object
@@ -84,6 +100,18 @@ func NewArtifact(pkg string, target string, options *lua.LTable) *Artifact {
 	artifact.Object = LUA.NewObject(LUATypeFile, options, FileSource(&artifact))
 	// Done
 	return &artifact
+}
+
+// GetProto returns the protobuf object
+func (f *Artifact) GetProto() (*pbSpec.FileSource, error) {
+	var pbFileSource pbSpec.FileSource
+	pbFileSource.Source = &pbSpec.FileSource_Artifact{
+		Artifact: &pbSpec.Artifact{
+			Package: f.Package,
+			Target:  f.Target,
+		},
+	}
+	return &pbFileSource, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

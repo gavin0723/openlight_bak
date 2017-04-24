@@ -3,7 +3,7 @@
 .SILENT:
 .PHONY: build clean
 
-ProtoFiles := ./spec/build.proto
+ProtoFiles := ./spec/build.proto ./spec/runner.proto
 
 build: clean
 	mkdir ../protoc-gen-go

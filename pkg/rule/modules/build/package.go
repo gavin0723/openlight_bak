@@ -17,6 +17,8 @@ import (
 
 	"github.com/yuin/gopher-lua"
 
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
 	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
 )
 
@@ -75,6 +77,46 @@ func NewPackage(name, remote string, references map[string]*Reference, targets m
 	pkg.Object = LUA.NewObject(LUATypePackage, options, &pkg)
 	// Done
 	return &pkg
+}
+
+// GetProto returns the protobuf object
+func (pkg *Package) GetProto() (*pbSpec.Package, error) {
+	var pbPackage pbSpec.Package
+	pbPackage.Name = pkg.Name
+	pbPackage.Remote = pkg.Remote
+	// Get references
+	if len(pkg.References) > 0 {
+		pbPackage.References = make(map[string]*pbSpec.Reference)
+		for name, ref := range pkg.References {
+			pbReference, err := ref.GetProto()
+			if err != nil {
+				return nil, err
+			}
+			pbPackage.References[name] = pbReference
+		}
+	}
+	// Get targets
+	if len(pkg.Targets) > 0 {
+		pbPackage.Targets = make(map[string]*pbSpec.Target)
+		for name, target := range pkg.Targets {
+			pbTarget, err := target.GetProto()
+			if err != nil {
+				return nil, err
+			}
+			pbPackage.Targets[name] = pbTarget
+		}
+	}
+	// Get options
+	var pbOptions pbSpec.PackageOptions
+	if options := pkg.GetOptions(); options != nil {
+		var err error
+		if pbOptions.DefaultTargets, err = LUA.GetStringSliceFromTable(options, "defaultTargets"); err != nil {
+			return nil, fmt.Errorf("Failed to get options [defaultTargets], error: %s", err)
+		}
+	}
+	pbPackage.Options = &pbOptions
+	// Done
+	return &pbPackage, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////
