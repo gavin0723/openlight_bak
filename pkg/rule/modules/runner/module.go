@@ -5,135 +5,121 @@
 package runner
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/yuin/gopher-lua"
 
 	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 
-	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
+	"github.com/ops-openlight/openlight/pkg/rule/common"
+	"github.com/ops-openlight/openlight/pkg/rule/engine"
 )
 
 const (
-	// LUANameModule defines the name of BuildModule
-	LUANameModule = "runner"
+	// ModuleName defines the module name
+	ModuleName = "runner"
+)
+
+const (
+	moduleLUAName = "runner"
 )
 
 // Ensure the interface is implements
 var _ Module = (*_Module)(nil)
+var _ engine.ModuleFactory = (*ModuleFactory)(nil)
 
-// RegisterTypes registers all types in this module
-func RegisterTypes(L *lua.LState, mod *lua.LTable) {
-	RegisterRunCommandType(L, mod)
+// ModuleFactory implements engine.ModuleFactory to runner module
+type ModuleFactory struct{}
+
+// NewModuleFactory creates a new ModuleFactory
+func NewModuleFactory() engine.ModuleFactory {
+	return new(ModuleFactory)
 }
 
-// Module defines the module used by build progress
+// Name returns the name of the created module (which can be used for other modules to get this one)
+func (factory *ModuleFactory) Name() string {
+	return ModuleName
+}
+
+// Create a new module
+func (factory *ModuleFactory) Create(ctx *engine.Context) (engine.Module, error) {
+	if ctx == nil {
+		return nil, errors.New("Require context")
+	}
+	return &_Module{ctx: ctx}, nil
+}
+
+// Module defines the runner model interface
 type Module interface {
-	LUA.Module
-	// Commands returns all commands
-	Commands() []*RunCommand
-	// CommandSpec returns all commands in proto format
-	CommandSpec() ([]*pbSpec.RunCommand, error)
+	engine.Module
+	// Spec returns the run file object
+	Spec() *pbSpec.RunFile
 }
 
 // _Module implements the Module interface
 type _Module struct {
-	ctx      LUA.ModuleContext
-	commands map[string]*RunCommand
+	ctx      *engine.Context
+	commands *common.NamedCollection
 }
 
-// NewModule returns new Module
-func NewModule(ctx LUA.ModuleContext) Module {
-	return &_Module{
-		ctx:      ctx,
-		commands: make(map[string]*RunCommand),
-	}
+// LUAName returns the module name in lua
+func (m *_Module) LUAName() string {
+	return moduleLUAName
 }
 
-// InitLInitLUAModule initializes (preload) module into lua
+// InitLUAModule initializes module into lua
 func (m *_Module) InitLUAModule(L *lua.LState) int {
+	// Create new module
 	mod := L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"getCommand":    m.LUAFuncGetCommand,
-		"addCommand":    m.LUAFuncAddCommand,
-		"deleteCommand": m.LUAFuncDeleteCommand,
+		"commands": m.luaFuncCommands,
 	})
-	RegisterTypes(L, mod)
+	// Register types
+	registerRunCommandType(L, mod)
+	// Return module
 	L.Push(mod)
-	// Done
 	return 1
 }
 
-// Name returns the module name
-func (m *_Module) Name() string {
-	return LUANameModule
-}
-
 // Commands returns all commands
-func (m *_Module) Commands() []*RunCommand {
-	var commands []*RunCommand
-	for _, cmd := range m.commands {
-		commands = append(commands, cmd)
+func (m *_Module) Spec() *pbSpec.RunFile {
+	if m.commands == nil {
+		return nil
 	}
-	return commands
-}
-
-// CommandSpec returns all commands in proto format
-func (m *_Module) CommandSpec() ([]*pbSpec.RunCommand, error) {
-	var pbCommands []*pbSpec.RunCommand
-	for _, cmd := range m.commands {
-		pbCommand, err := cmd.GetProto()
-		if err != nil {
-			return nil, err
-		}
-		pbCommands = append(pbCommands, pbCommand)
+	var runfile pbSpec.RunFile
+	runfile.Commands = make(map[string]*pbSpec.RunCommand)
+	for _, item := range m.commands.Items() {
+		runfile.Commands[item.Name] = (*pbSpec.RunCommand)(item.Value.(*RunCommand))
 	}
-	return pbCommands, nil
+	// Done
+	return &runfile
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////
 
-// LUAFuncGetCommand defines runner.getCommand in lua
-func (m *_Module) LUAFuncGetCommand(L *lua.LState) int {
-	if L.GetTop() != 1 {
+// luaFuncCommands defines runner.commands in lua
+func (m *_Module) luaFuncCommands(L *lua.LState) int {
+	if L.GetTop() != 0 {
 		L.ArgError(0, "Invalid arguments")
-		return 0
 	}
-	cmd := m.commands[L.CheckString(1)]
-	if cmd != nil {
-		L.Push(cmd.GetLUAUserData(L))
-		return 1
+	// Return commands
+	if m.commands == nil {
+		m.commands = common.NewNamedCollection(m.convertCommand)
 	}
-	// Not found
-	return 0
+	L.Push(m.commands.GetLUAUserData(L))
+	return 1
 }
 
-// LUAFuncAddCommand defines runner.addCommand in lua
-func (m *_Module) LUAFuncAddCommand(L *lua.LState) int {
-	for i := 1; i <= L.GetTop(); i++ {
-		ud := L.CheckUserData(i)
-		if ud == nil {
-			return 0
-		}
-		cmd, ok := ud.Value.(*RunCommand)
-		if !ok {
-			L.ArgError(i, "Not a command")
-			return 0
-		}
-		if _cmd := m.commands[cmd.ID]; _cmd != nil {
-			L.ArgError(i, fmt.Sprintf("Duplicated command [%v]", _cmd.ID))
-			return 0
-		}
-		m.commands[cmd.ID] = cmd
+func (m *_Module) convertCommand(value lua.LValue) (common.Object, error) {
+	if value == nil {
+		return nil, errors.New("Invalid nil value")
 	}
-	// Not found
-	return 0
-}
-
-// LUAFuncDeleteCommand defines runner.deleteCommand in lua
-func (m *_Module) LUAFuncDeleteCommand(L *lua.LState) int {
-	for i := 1; i < L.GetTop(); i++ {
-		delete(m.commands, L.CheckString(i))
+	if value.Type() != lua.LTUserData {
+		return nil, fmt.Errorf("Expect [%v] type, actually got [%v] type", lua.LTUserData, value.Type())
 	}
-	// Done
-	return 0
+	cmd, ok := value.(*lua.LUserData).Value.(*RunCommand)
+	if !ok {
+		return nil, errors.New("Expect RunCommand object")
+	}
+	return cmd, nil
 }

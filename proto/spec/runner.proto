@@ -11,12 +11,18 @@ option java_multiple_files = true;
 option java_outer_classname = "RunnerProto";
 option java_package = "com.github.openlight.spec";
 
+// The run file
+message RunFile {
+    // The commands
+    map<string, RunCommand> commands = 1;
+}
+
 // The run command
 message RunCommand {
-    // ID
-    string id = 1;
     // Name
-    string name = 2;
+    string name = 1;
+    // Comment
+    string comment = 2;
     // (Command) arguments
     repeated string args = 3;
     // Workdir

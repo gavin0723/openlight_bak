@@ -6,360 +6,119 @@
 package build
 
 import (
+	"errors"
+	"fmt"
+
 	lua "github.com/yuin/gopher-lua"
 
 	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
+	"github.com/ops-openlight/openlight/pkg/rule/common"
 )
 
-// DockerImageTargetLUAFuncs defines all lua functions for docker image target
-var DockerImageTargetLUAFuncs = map[string]lua.LGFunction{
-	"repository":  LUAFuncDockerImageTargetRepository,
-	"dockerImage": LUAFuncDockerImageTargetDockerImage,
-	"from":        LUAFuncDockerImageTargetFrom,
-	"label":       LUAFuncDockerImageTargetLabel,
-	"add":         LUAFuncDockerImageTargetAdd,
-	"copy":        LUAFuncDockerImageTargetCopy,
-	"run":         LUAFuncDockerImageTargetRun,
-	"entrypoint":  LUAFuncDockerImageTargetEntrypoint,
-	"expose":      LUAFuncDockerImageTargetExpose,
-	"volume":      LUAFuncDockerImageTargetVolume,
-	"user":        LUAFuncDockerImageTargetUser,
-	"workdir":     LUAFuncDockerImageTargetWorkdir,
-	"env":         LUAFuncDockerImageTargetEnv,
+// Ensure the interface is implemented
+var _ Target = (*DockerImageTarget)(nil)
+
+const (
+	dockerImageTargetLUAName     = "DockerImageTarget"
+	dockerImageTargetLUATypeName = "build-target-dockerimage"
+)
+
+// registerDockerImageTargetType registers DockerImageTarget type in lua
+func registerDockerImageTargetType(L *lua.LState, mod *lua.LTable) {
+	mt := L.NewTypeMetatable(dockerImageTargetLUATypeName)
+	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewDockerImageTargetFromLUA))
+	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
+		"dependent":  luaFuncTargetDependent,
+		"from":       luaFuncDockerImageTargetFrom,
+		"label":      luaFuncDockerImageTargetLabel,
+		"add":        luaFuncDockerImageTargetAdd,
+		"copy":       luaFuncDockerImageTargetCopy,
+		"run":        luaFuncDockerImageTargetRun,
+		"entrypoint": luaFuncDockerImageTargetEntrypoint,
+		"expose":     luaFuncDockerImageTargetExpose,
+		"volume":     luaFuncDockerImageTargetVolume,
+		"user":       luaFuncDockerImageTargetUser,
+		"workdir":    luaFuncDockerImageTargetWorkdir,
+		"env":        luaFuncDockerImageTargetEnv,
+	}))
+	L.SetField(mod, dockerImageTargetLUAName, mt)
 }
 
-// DockerImageTarget represents the docker target of build package
+// DockerImageTarget implements the docker image target
 type DockerImageTarget struct {
-	Repository string
-	ImageName  string
-	Commands   []DockerImageCommand
+	_Target
 }
 
-// RegisterDockerImageTargetType registers DockerImageTarget type in lua
-func RegisterDockerImageTargetType(L *lua.LState, mod *lua.LTable) {
-	mt := L.NewTypeMetatable(LUATypeDockerImageTarget)
-	var funcs = make(map[string]lua.LGFunction)
-	for name, function := range TargetLUAFuncs {
-		funcs[name] = function
+// NewDockerImageTargetFromLUA creates a new DockerImageTarget from LUA
+func NewDockerImageTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, error) {
+	repository, err := params.GetString("repository")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [repository]: %v", err)
 	}
-	for name, function := range DockerImageTargetLUAFuncs {
-		funcs[name] = function
+	if repository == "" {
+		return nil, errors.New("Require repository")
 	}
-	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), funcs))
-}
-
-// NewDockerImageTarget creates a new DockerImageTarget
-func NewDockerImageTarget(name string, repository string, imageName string, options *lua.LTable) *Target {
-	target := NewTarget(LUATypeDockerImageTarget, name, options)
-	target.DockerImage = &DockerImageTarget{
-		Repository: repository,
-		ImageName:  imageName,
+	image, err := params.GetString("image")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [image]: %v", err)
+	}
+	if image == "" {
+		return nil, errors.New("Require image")
+	}
+	// Create a new target
+	target := &DockerImageTarget{
+		_Target: _Target{
+			Target: &pbSpec.Target_DockerImage{
+				DockerImage: &pbSpec.DockerImageTarget{
+					Repository: repository,
+					Image:      image,
+				},
+			},
+		},
 	}
 	// Done
-	return target
+	return target.GetLUAUserData(L), nil
 }
 
-// GetProto returns the protobuf object
-func (target *DockerImageTarget) GetProto(options *lua.LTable) (*pbSpec.DockerImageTarget, error) {
-	var pbTarget pbSpec.DockerImageTarget
-	pbTarget.Repository = target.Repository
-	pbTarget.ImageName = target.ImageName
-	// Add commands
-	for _, cmd := range target.Commands {
-		pbCmd, err := cmd.GetProto()
-		if err != nil {
-			return nil, err
-		}
-		pbTarget.Commands = append(pbTarget.Commands, pbCmd)
-	}
+// GetDockerImageTarget returns the pbSpec.DockerImageTarget
+func (t *DockerImageTarget) GetDockerImageTarget() *pbSpec.DockerImageTarget {
+	return (t.Target.(*pbSpec.Target_DockerImage)).DockerImage
+}
+
+// GetLUAUserData returns the lua user data
+func (t *DockerImageTarget) GetLUAUserData(L *lua.LState) *lua.LUserData {
+	ud := L.NewUserData()
+	ud.Value = t
+	L.SetMetatable(ud, L.GetTypeMetatable(dockerImageTargetLUATypeName))
 	// Done
-	return &pbTarget, nil
+	return ud
 }
 
-// DockerImageCommand represents the docker build command
-type DockerImageCommand interface {
-	// GetProto returns the protobuf object
-	GetProto() (*pbSpec.DockerImageBuildCommand, error)
-}
+//////////////////////////////////////// LUA functions ////////////////////////////////////////
 
-// DockerImageCommandFrom define docker command: FROM
-type DockerImageCommandFrom struct {
-	Name string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandFrom) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_From_{
-		From: &pbSpec.DockerImageBuildCommand_From{
-			Name: cmd.Name,
-		},
+// luaDockerImageTargetSelf get lua target self for docker image
+func luaDockerImageTargetSelf(L *lua.LState) *DockerImageTarget {
+	ud := L.CheckUserData(1)
+	if target, ok := ud.Value.(*DockerImageTarget); ok {
+		return target
 	}
-	return &pbCommand, nil
+	L.ArgError(1, "Target expected")
+	return nil
 }
 
-// DockerImageCommandLabel define docker command: LABEL
-type DockerImageCommandLabel struct {
-	Key   string
-	Value string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandLabel) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Label_{
-		Label: &pbSpec.DockerImageBuildCommand_Label{
-			Key:   cmd.Key,
-			Value: cmd.Value,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandAdd define docker command: ADD
-type DockerImageCommandAdd struct {
-	File FileSource
-	Path string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandAdd) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	var file *pbSpec.FileSource
-	if cmd.File != nil {
-		var err error
-		file, err = cmd.File.GetProto()
-		if err != nil {
-			return nil, err
-		}
-	}
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Add_{
-		Add: &pbSpec.DockerImageBuildCommand_Add{
-			File: file,
-			Path: cmd.Path,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandCopy define docker command: COPY
-type DockerImageCommandCopy struct {
-	File FileSource
-	Path string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandCopy) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	var file *pbSpec.FileSource
-	if cmd.File != nil {
-		var err error
-		file, err = cmd.File.GetProto()
-		if err != nil {
-			return nil, err
-		}
-	}
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Copy_{
-		Copy: &pbSpec.DockerImageBuildCommand_Copy{
-			File: file,
-			Path: cmd.Path,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandRun define docker command: RUN
-type DockerImageCommandRun struct {
-	Command string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandRun) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Run_{
-		Run: &pbSpec.DockerImageBuildCommand_Run{
-			Command: cmd.Command,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandEntrypoint define docker command: ENTRYPOINT
-type DockerImageCommandEntrypoint struct {
-	Args []string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandEntrypoint) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Entrypoint_{
-		Entrypoint: &pbSpec.DockerImageBuildCommand_Entrypoint{
-			Args: cmd.Args,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandExpose define docker command: EXPOSE
-type DockerImageCommandExpose struct {
-	Ports []int
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandExpose) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	var ports []int32
-	for _, port := range cmd.Ports {
-		ports = append(ports, int32(port))
-	}
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Expose_{
-		Expose: &pbSpec.DockerImageBuildCommand_Expose{
-			Ports: ports,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandVolume define docker command: VOLUME
-type DockerImageCommandVolume struct {
-	Paths []string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandVolume) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Volume_{
-		Volume: &pbSpec.DockerImageBuildCommand_Volume{
-			Paths: cmd.Paths,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandUser define docker command: USER
-type DockerImageCommandUser struct {
-	Name string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandUser) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_User_{
-		User: &pbSpec.DockerImageBuildCommand_User{
-			Name: cmd.Name,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandWorkdir define docker command: WORKDIR
-type DockerImageCommandWorkdir struct {
-	Path string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandWorkdir) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Workdir_{
-		Workdir: &pbSpec.DockerImageBuildCommand_Workdir{
-			Path: cmd.Path,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// DockerImageCommandEnv define docker command: ENV
-type DockerImageCommandEnv struct {
-	Key   string
-	Value string
-}
-
-// GetProto returns the protobuf object
-func (cmd *DockerImageCommandEnv) GetProto() (*pbSpec.DockerImageBuildCommand, error) {
-	var pbCommand pbSpec.DockerImageBuildCommand
-	pbCommand.Command = &pbSpec.DockerImageBuildCommand_Env_{
-		Env: &pbSpec.DockerImageBuildCommand_Env{
-			Key:   cmd.Key,
-			Value: cmd.Value,
-		},
-	}
-	return &pbCommand, nil
-}
-
-// LUADockerImageTargetSelf get lua target self for docker image
-func LUADockerImageTargetSelf(L *lua.LState) *Target {
-	target := LUATargetSelf(L)
-	if target == nil {
-		return nil
-	}
-	if target.DockerImage == nil {
-		L.ArgError(0, "Not a docker image")
-		return nil
-	}
-	return target
-}
-
-// LUAFuncDockerImageTargetRepository defines target.repository function in lua
-func LUAFuncDockerImageTargetRepository(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetFrom defines DockerImage.from function in lua
+func luaFuncDockerImageTargetFrom(L *lua.LState) int {
+	if L.GetTop() < 2 {
+		L.ArgError(2, "Require name")
+		return 0
+	} else if L.GetTop() > 2 {
+		L.ArgError(3, "Too many names")
 		return 0
 	}
-	if L.GetTop() == 1 {
-		// Get
-		L.Push(lua.LString(target.DockerImage.Repository))
-		return 1
-	} else if L.GetTop() == 2 {
-		// Set
-		repository := L.CheckString(2)
-		if repository == "" {
-			L.ArgError(2, "Require value")
-			return 0
-		}
-		target.DockerImage.Repository = repository
-		return 0
-	}
-	// Invalid arguments
-	L.ArgError(0, "Invalid arguments")
-	return 0
-}
-
-// LUAFuncDockerImageTargetDockerImage defines target.dockerImage function in lua
-func LUAFuncDockerImageTargetDockerImage(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
-		return 0
-	}
-	if target.DockerImage == nil {
-		L.ArgError(0, "Not a DockerImage target")
-		return 0
-	}
-	if L.GetTop() == 1 {
-		// Get
-		L.Push(lua.LString(target.DockerImage.ImageName))
-		return 1
-	} else if L.GetTop() == 2 {
-		// Set
-		imageName := L.CheckString(2)
-		if imageName == "" {
-			L.ArgError(2, "Require value")
-			return 0
-		}
-		target.DockerImage.ImageName = imageName
-		return 0
-	}
-	// Invalid arguments
-	L.ArgError(0, "Invalid arguments")
-	return 0
-}
-
-// LUAFuncDockerImageTargetFrom defines DockerImage.from function in lua
-func LUAFuncDockerImageTargetFrom(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
-		return 0
-	}
-	if len(target.DockerImage.Commands) != 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) != 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
@@ -370,18 +129,29 @@ func LUAFuncDockerImageTargetFrom(L *lua.LState) int {
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandFrom{Name: name})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_From_{
+			From: &pbSpec.DockerImageBuildCommand_From{
+				Name: name,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetLabel defines DockerImage.label function in lua
-func LUAFuncDockerImageTargetLabel(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetLabel defines DockerImage.label function in lua
+func luaFuncDockerImageTargetLabel(L *lua.LState) int {
+	if L.GetTop() < 3 {
+		L.ArgError(3, "Require key and value")
+		return 0
+	} else if L.GetTop() > 3 {
+		L.ArgError(4, "Too many values")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
@@ -391,205 +161,255 @@ func LUAFuncDockerImageTargetLabel(L *lua.LState) int {
 		L.ArgError(2, "Require key")
 		return 0
 	}
-	// Get value
 	value := L.CheckString(3)
 	if value == "" {
 		L.ArgError(3, "Require value")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandLabel{Key: key, Value: value})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Label_{
+			Label: &pbSpec.DockerImageBuildCommand_Label{
+				Key:   key,
+				Value: value,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetAdd defines DockerImage.add function in lua
-func LUAFuncDockerImageTargetAdd(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetAdd defines DockerImage.add function in lua
+func luaFuncDockerImageTargetAdd(L *lua.LState) int {
+	if L.GetTop() < 3 {
+		L.ArgError(3, "Require file and target")
+		return 0
+	} else if L.GetTop() > 3 {
+		L.ArgError(4, "Too many arguments")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	// Get file source
+	// Get file
 	ud := L.CheckUserData(2)
-	if ud == nil {
-		return 0
-	}
-	fileSource, ok := ud.Value.(FileSource)
+	file, ok := ud.Value.(*FileSource)
 	if !ok {
-		L.ArgError(2, "Not a file source")
-		return 0
+		L.ArgError(2, "Not a file")
 	}
-	// Get path
 	path := L.CheckString(3)
 	if path == "" {
 		L.ArgError(3, "Require path")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandAdd{File: fileSource, Path: path})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Add_{
+			Add: &pbSpec.DockerImageBuildCommand_Add{
+				File: (*pbSpec.FileSource)(file),
+				Path: path,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetCopy defines DockerImage.copy function in lua
-func LUAFuncDockerImageTargetCopy(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetCopy defines DockerImage.copy function in lua
+func luaFuncDockerImageTargetCopy(L *lua.LState) int {
+	if L.GetTop() < 3 {
+		L.ArgError(3, "Require file and target")
+		return 0
+	} else if L.GetTop() > 3 {
+		L.ArgError(4, "Too many arguments")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	// Get file source
+	// Get file
 	ud := L.CheckUserData(2)
-	if ud == nil {
-		return 0
-	}
-	fileSource, ok := ud.Value.(FileSource)
+	file, ok := ud.Value.(*FileSource)
 	if !ok {
-		L.ArgError(2, "Not a file source")
-		return 0
+		L.ArgError(2, "Not a file")
 	}
-	// Get path
 	path := L.CheckString(3)
 	if path == "" {
 		L.ArgError(3, "Require path")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandCopy{File: fileSource, Path: path})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Copy_{
+			Copy: &pbSpec.DockerImageBuildCommand_Copy{
+				File: (*pbSpec.FileSource)(file),
+				Path: path,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetRun defines DockerImage.run function in lua
-func LUAFuncDockerImageTargetRun(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetRun defines DockerImage.run function in lua
+func luaFuncDockerImageTargetRun(L *lua.LState) int {
+	if L.GetTop() < 2 {
+		L.ArgError(2, "Require command")
+		return 0
+	} else if L.GetTop() > 2 {
+		L.ArgError(3, "Too many commands")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	// Get command
+	// Get name
 	command := L.CheckString(2)
 	if command == "" {
 		L.ArgError(2, "Require command")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandRun{Command: command})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Run_{
+			Run: &pbSpec.DockerImageBuildCommand_Run{
+				Command: command,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetEntrypoint defines DockerImage.entrypoint function in lua
-func LUAFuncDockerImageTargetEntrypoint(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
-		return 0
-	}
-	if len(target.DockerImage.Commands) == 0 {
+// luaFuncDockerImageTargetEntrypoint defines DockerImage.entrypoint function in lua
+func luaFuncDockerImageTargetEntrypoint(L *lua.LState) int {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	if L.GetTop() < 2 {
-		L.ArgError(2, "Require command and arguments")
-		return 0
-	}
+	// Get arguments
 	var args []string
 	for i := 2; i <= L.GetTop(); i++ {
 		args = append(args, L.CheckString(i))
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandEntrypoint{Args: args})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Entrypoint_{
+			Entrypoint: &pbSpec.DockerImageBuildCommand_Entrypoint{
+				Args: args,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetExpose defines DockerImage.expose function in lua
-func LUAFuncDockerImageTargetExpose(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
-		return 0
-	}
-	if len(target.DockerImage.Commands) == 0 {
+// luaFuncDockerImageTargetExpose defines DockerImage.expose function in lua
+func luaFuncDockerImageTargetExpose(L *lua.LState) int {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	if L.GetTop() < 2 {
-		L.ArgError(2, "Require ports")
-		return 0
-	}
-	var ports []int
+	// Get ports
+	var ports []int32
 	for i := 2; i <= L.GetTop(); i++ {
-		ports = append(ports, L.CheckInt(i))
+		ports = append(ports, int32(L.CheckNumber(i)))
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandExpose{Ports: ports})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Expose_{
+			Expose: &pbSpec.DockerImageBuildCommand_Expose{
+				Ports: ports,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetVolume defines DockerImage.volume function in lua
-func LUAFuncDockerImageTargetVolume(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
-		return 0
-	}
-	if len(target.DockerImage.Commands) == 0 {
+// luaFuncDockerImageTargetVolume defines DockerImage.volume function in lua
+func luaFuncDockerImageTargetVolume(L *lua.LState) int {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
-	if L.GetTop() < 2 {
-		L.ArgError(2, "Require path")
-		return 0
-	}
+	// Get paths
 	var paths []string
 	for i := 2; i <= L.GetTop(); i++ {
 		paths = append(paths, L.CheckString(i))
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandVolume{Paths: paths})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Volume_{
+			Volume: &pbSpec.DockerImageBuildCommand_Volume{
+				Paths: paths,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetUser defines DockerImage.user function in lua
-func LUAFuncDockerImageTargetUser(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetUser defines DockerImage.user function in lua
+func luaFuncDockerImageTargetUser(L *lua.LState) int {
+	if L.GetTop() < 2 {
+		L.ArgError(2, "Require user")
+		return 0
+	} else if L.GetTop() > 2 {
+		L.ArgError(3, "Too many users")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
 	// Get name
-	name := L.CheckString(2)
-	if name == "" {
-		L.ArgError(2, "Require name")
+	user := L.CheckString(2)
+	if user == "" {
+		L.ArgError(2, "Require user")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandUser{Name: name})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_User_{
+			User: &pbSpec.DockerImageBuildCommand_User{
+				Name: user,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetWorkdir defines DockerImage.workdir function in lua
-func LUAFuncDockerImageTargetWorkdir(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetWorkdir defines DockerImage.workdir function in lua
+func luaFuncDockerImageTargetWorkdir(L *lua.LState) int {
+	if L.GetTop() < 2 {
+		L.ArgError(2, "Require path")
+		return 0
+	} else if L.GetTop() > 2 {
+		L.ArgError(3, "Too many paths")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
@@ -600,18 +420,29 @@ func LUAFuncDockerImageTargetWorkdir(L *lua.LState) int {
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandWorkdir{Path: path})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Workdir_{
+			Workdir: &pbSpec.DockerImageBuildCommand_Workdir{
+				Path: path,
+			},
+		},
+	})
 	// Done
 	return 0
 }
 
-// LUAFuncDockerImageTargetEnv defines DockerImage.env function in lua
-func LUAFuncDockerImageTargetEnv(L *lua.LState) int {
-	target := LUADockerImageTargetSelf(L)
-	if target == nil {
+// luaFuncDockerImageTargetEnv defines DockerImage.env function in lua
+func luaFuncDockerImageTargetEnv(L *lua.LState) int {
+	if L.GetTop() < 3 {
+		L.ArgError(3, "Require key and value")
+		return 0
+	} else if L.GetTop() > 3 {
+		L.ArgError(4, "Too many values")
 		return 0
 	}
-	if len(target.DockerImage.Commands) == 0 {
+	// Get dockerimage
+	dockerImage := luaDockerImageTargetSelf(L).GetDockerImageTarget()
+	if len(dockerImage.Commands) == 0 {
 		L.ArgError(0, "From command must be the first one")
 		return 0
 	}
@@ -621,14 +452,20 @@ func LUAFuncDockerImageTargetEnv(L *lua.LState) int {
 		L.ArgError(2, "Require key")
 		return 0
 	}
-	// Get value
 	value := L.CheckString(3)
 	if value == "" {
 		L.ArgError(3, "Require value")
 		return 0
 	}
 	// Add command
-	target.DockerImage.Commands = append(target.DockerImage.Commands, &DockerImageCommandEnv{Key: key, Value: value})
+	dockerImage.Commands = append(dockerImage.Commands, &pbSpec.DockerImageBuildCommand{
+		Command: &pbSpec.DockerImageBuildCommand_Env_{
+			Env: &pbSpec.DockerImageBuildCommand_Env{
+				Key:   key,
+				Value: value,
+			},
+		},
+	})
 	// Done
 	return 0
 }

@@ -2,7 +2,7 @@
 // File Name: util.go
 // Description:
 
-package lua
+package common
 
 import (
 	"errors"
@@ -90,11 +90,22 @@ func ConvertTableToStringSlice(table *lua.LTable) ([]string, error) {
 	for i := 1; i <= table.Len(); i++ {
 		value := table.RawGetInt(i)
 		if value == lua.LNil {
-			return nil, errors.New("Not a string array")
+			return nil, errors.New("Not a string list")
 		} else if value.Type() != lua.LTString {
 			return nil, fmt.Errorf("Expect [%v] type, actually got [%v] type", lua.LTString, value.Type())
 		}
 		strs = append(strs, string(value.(lua.LString)))
 	}
 	return strs, nil
+}
+
+// ConvertValueToStringSlice converts a lua value to string slice
+func ConvertValueToStringSlice(value lua.LValue) ([]string, error) {
+	if value == nil {
+		return nil, nil
+	}
+	if value.Type() != lua.LTTable {
+		return nil, fmt.Errorf("Expect [%v] type, actually got [%v] type", lua.LTTable, value.Type())
+	}
+	return ConvertTableToStringSlice(value.(*lua.LTable))
 }

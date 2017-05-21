@@ -9,16 +9,22 @@ option java_multiple_files = true;
 option java_outer_classname = "BuildProto";
 option java_package = "com.github.openlight.spec";
 
+// The build file
+message BuildFile {
+    // The package
+    Package package = 1;
+}
+
 // Package
 message Package {
-    // Name
+    // Package name for display
     string name = 1;
-    // Remote (URI)
-    string remote = 2;
-    // References
-    map<string, Reference> references = 3;
+    // Package meta info
+    map<string, string> meta = 2;
     // Targets
-    map<string, Target> targets = 4;
+    map<string, Target> targets = 3;
+    // References
+    map<string, Reference> references = 4;
     // Options
     PackageOptions options = 15;
 }
@@ -29,41 +35,51 @@ message PackageOptions {
     repeated string defaultTargets = 1;
 }
 
-// Reference
+// Reference (package)
 message Reference {
-    // Name
-    string name = 1;
-    // Remote
-    string remote = 2;
-    // Local finders
-    repeated LocalFinder localFinders = 3;
+    // Remote (Git address)
+    string remote = 1;
+    // Finders (To find the referenced repository, before clone the repository from remote)
+    repeated Finder finders = 2;
+    // Path to the root of the found / cloned repository
+    string path = 3;
 }
 
-// Local finder
-message LocalFinder {
+// Repository finder
+message Finder {
     // Finder name
     string name = 1;
     // Finders
     oneof Finder {
-        // Python local finder
-        PythonLocalFinder python = 2;
+        // Python finder
+        PythonFinder python = 2;
+        // Go finder
+        GoFinder go = 3;
     }
 }
 
-// Python local finder
-message PythonLocalFinder {
+// Python finder
+message PythonFinder {
     // Python module name
     string module = 1;
     // The number of parent dirs
     int32 parent = 2;
 }
 
+// Go finder
+message GoFinder {
+    // Go package name
+    string package = 1;
+    // Go root path
+    string root = 2;
+    // The number of parent dirs
+    int32 parent = 3;
+}
+
 // Target
 message Target {
-    // Name
-    string name = 1;
     // Dependencies
-    repeated Dependency dependencies = 2;
+    repeated Dependency dependencies = 1;
     // Target
     oneof Target {
         // Command
@@ -87,22 +103,16 @@ message Dependency {
         // Pip
         PipDependency pip = 3;
     }
-    // Options
-    DependencyOptions options = 15;
-}
-
-// Dependency options
-message DependencyOptions {
-    // Build or not
-    bool build = 1;
 }
 
 // Target dependency
 message TargetDependency {
-    // Package
-    string package = 1;
+    // Reference name. Empty means the package itself
+    string reference = 1;
     // Target
     string target = 2;
+    // Build or not
+    bool build = 5;
 }
 
 // Go dependency
@@ -119,12 +129,12 @@ message PipDependency {
 
 // Command target
 message CommandTarget {
+    // Command
+    string command = 1;
     // Args
-    repeated string args = 1;
+    repeated string args = 2;
     // Work dir
-    string workdir = 2;
-    // Output dir
-    string output = 3;
+    string workdir = 3;
 }
 
 // Go bianry target
@@ -133,14 +143,18 @@ message GoBinaryTarget {
     string package = 1;
     // Output name
     string output = 2;
+    // Go version
+    string goVersion = 3;
 }
 
 // Python lib target
 message PythonLibTarget {
-    // Work dir
+    // Work dir (relative to package path)
     string workdir = 1;
     // Setup filename
     string setup = 2;
+    // Output name
+    string output = 3;
 }
 
 // Docker image target
@@ -148,7 +162,7 @@ message DockerImageTarget {
     // Repository
     string repository = 1;
     // Image name
-    string imageName = 2;
+    string image = 2;
     // Commands
     repeated DockerImageBuildCommand commands = 3;
 }
@@ -257,16 +271,18 @@ message FileSource {
 
 // File
 message File {
-    // Package
-    string package = 1;
-    // Filename
-    string filename = 2;
+    // Reference. Empty means the package itself.
+    string reference = 1;
+    // File names.
+    repeated string filenames = 2;
 }
 
 // Artifact
 message Artifact {
-    // Package
-    string package = 1;
+    // Reference. Empty means the package itself.
+    string reference = 1;
     // Target
     string target = 2;
+    // File names
+    repeated string filenames = 3;
 }

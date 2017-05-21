@@ -3,6 +3,9 @@
 *.a
 *.so
 
+# Max
+*.DS_Store
+
 # Folders
 _obj
 _test

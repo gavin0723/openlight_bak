@@ -22,7 +22,8 @@ import (
 func parseSpec(c *cli.Context) error {
 	filename, outputFilename := c.String("file"), c.String("output")
 	// Load filename
-	loader, err := rule.NewFileLoader([]string{filename})
+	engine := rule.NewEngine()
+	ctx, err := engine.ParseFile(filename)
 	if err != nil {
 		return cli.NewExitError(fmt.Sprintf("Failed to parse file, error: %v", err), 1)
 	}
@@ -38,29 +39,23 @@ func parseSpec(c *cli.Context) error {
 	} else {
 		out = os.Stdout
 	}
-	// Write output
-	buildModule := loader.GetModule("build").(build.Module)
 	jMarshaler := jsonpb.Marshaler{}
-	for _, pkg := range buildModule.Packages() {
-		pbPackage, err := pkg.GetProto()
-		if err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to get protobuf object of package [%v], error: %s", pkg.Name, err), 1)
-		}
-		if err := jMarshaler.Marshal(out, pbPackage); err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to dump protobuf object of package [%v], error: %s", pkg.Name, err), 1)
+	// Write build module
+	buildfile := ctx.GetModule("build").(build.Module).Spec()
+	if buildfile != nil {
+		if err := jMarshaler.Marshal(out, buildfile); err != nil {
+			return cli.NewExitError(fmt.Sprintf("Failed to dump BuildFile, error: %v", err), 1)
 		}
 		fmt.Fprintln(out)
 	}
-	runnerModule := loader.GetModule("runner").(runner.Module)
-	for _, cmd := range runnerModule.Commands() {
-		pbCommand, err := cmd.GetProto()
-		if err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to get protobuf object of command [%v], error: %s", cmd.ID, err), 1)
-		}
-		if err := jMarshaler.Marshal(out, pbCommand); err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to dump protobuf object of command [%v], error: %s", cmd.ID, err), 1)
+	// Write runner module
+	runfile := ctx.GetModule("runner").(runner.Module).Spec()
+	if runfile != nil {
+		if err := jMarshaler.Marshal(out, runfile); err != nil {
+			return cli.NewExitError(fmt.Sprintf("Failed to dump RunnerFile, error: %v", err), 1)
 		}
 		fmt.Fprintln(out)
+
 	}
 	// Done
 	return nil

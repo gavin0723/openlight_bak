@@ -5,75 +5,110 @@
 package build
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/yuin/gopher-lua"
 
 	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 
-	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
+	"github.com/ops-openlight/openlight/pkg/rule/common"
 )
 
-// Exposed lua infos
+// Ensure the interface is implemented
+var _ common.Object = (*Reference)(nil)
+
 const (
-	LUATypeReference = "Build-Reference"
+	referenceLUAName     = "Reference"
+	referenceLUATypeName = "Build-Reference"
 )
 
-// ReferenceLUAFuncs defines all lua functions for reference
-var ReferenceLUAFuncs = map[string]lua.LGFunction{
-	"name":              LUAFuncReferenceName,
-	"remote":            LUAFuncReferenceRemote,
-	"options":           LUA.FuncObjectOptions,
-	"localFinder":       LUAFuncReferenceLocalFinder,
-	"pythonLocalFinder": LUAFuncReferencePythonLocalFinder,
-}
-
-// RegisterReferenceType registers reference type in lua
-func RegisterReferenceType(L *lua.LState, mod *lua.LTable) {
-	mt := L.NewTypeMetatable(LUATypeReference)
-	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), ReferenceLUAFuncs))
+// registerReferenceType registers reference type in lua
+func registerReferenceType(L *lua.LState, mod *lua.LTable) {
+	mt := L.NewTypeMetatable(referenceLUATypeName)
+	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewReferenceFromLUA))
+	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
+		"finders": luaFuncReferenceFinders,
+	}))
+	// Set field
+	L.SetField(mod, referenceLUAName, mt)
 }
 
 // Reference represents the reference of build package
 type Reference struct {
-	LUA.Object
-	Name         string
-	Remote       string
-	LocalFinders []LocalFinder
+	Remote  string
+	Finders *common.NamedCollection
+	Path    string
 }
 
 // NewReference creates a new Reference
-func NewReference(name, remote string, localFinders []LocalFinder, options *lua.LTable) *Reference {
-	var ref = Reference{
-		Name:         name,
-		Remote:       remote,
-		LocalFinders: localFinders,
+func NewReference(remote, path string) *Reference {
+	return &Reference{
+		Remote: remote,
+		Path:   path,
 	}
-	ref.Object = LUA.NewObject(LUATypeReference, options, &ref)
+}
+
+// NewReferenceFromLUA creates a new Reference from lua
+func NewReferenceFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, error) {
+	remote, err := params.GetString("remote")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [remote]: %v", err)
+	}
+	path, err := params.GetString("path")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [path]: %v", err)
+	}
+	if remote == "" && path == "" {
+		return nil, errors.New("Please specify remote or path at least")
+	}
+	ref := NewReference(remote, path)
 	// Done
-	return &ref
+	return ref.GetLUAUserData(L), nil
+}
+
+// GetLUAUserData returns the lua user data
+func (ref *Reference) GetLUAUserData(L *lua.LState) *lua.LUserData {
+	ud := L.NewUserData()
+	ud.Value = ref
+	L.SetMetatable(ud, L.GetTypeMetatable(referenceLUATypeName))
+	// Done
+	return ud
 }
 
 // GetProto returns the protobuf object
-func (ref *Reference) GetProto() (*pbSpec.Reference, error) {
+func (ref *Reference) GetProto() *pbSpec.Reference {
 	var pbReference pbSpec.Reference
-	pbReference.Name = ref.Name
 	pbReference.Remote = ref.Remote
-	for _, finder := range ref.LocalFinders {
-		pbFinder, err := finder.GetProto()
-		if err != nil {
-			return nil, err
+	pbReference.Path = ref.Path
+	// Finders
+	if ref.Finders != nil {
+		for _, item := range ref.Finders.Items() {
+			pbReference.Finders = append(pbReference.Finders, item.Value.(Finder).GetProto(item.Name))
 		}
-		pbReference.LocalFinders = append(pbReference.LocalFinders, pbFinder)
 	}
 	// Done
-	return &pbReference, nil
+	return &pbReference
+}
+
+func convertFinder(value lua.LValue) (common.Object, error) {
+	if value == nil {
+		return nil, errors.New("Invalid nil value")
+	}
+	if value.Type() != lua.LTUserData {
+		return nil, fmt.Errorf("Expect [%v] type, actually got [%v] type", lua.LTUserData, value.Type())
+	}
+	finder, ok := value.(*lua.LUserData).Value.(Finder)
+	if !ok {
+		return nil, errors.New("Expect Finder object")
+	}
+	return finder, nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////
 
-// LUAReferenceSelf get lua reference self
-func LUAReferenceSelf(L *lua.LState) *Reference {
+// luaReferenceSelf get lua reference self
+func luaReferenceSelf(L *lua.LState) *Reference {
 	ud := L.CheckUserData(1)
 	if ref, ok := ud.Value.(*Reference); ok {
 		return ref
@@ -82,87 +117,17 @@ func LUAReferenceSelf(L *lua.LState) *Reference {
 	return nil
 }
 
-// LUAFuncReferenceName defines package.name function in lua
-func LUAFuncReferenceName(L *lua.LState) int {
-	ref := LUAReferenceSelf(L)
-	if ref == nil {
-		return 0
-	}
+// luaFuncReferenceFinders defines Reference.finders function in lua
+func luaFuncReferenceFinders(L *lua.LState) int {
 	if L.GetTop() != 1 {
 		L.ArgError(0, "Invalid arguments")
 		return 0
 	}
+	ref := luaReferenceSelf(L)
+	if ref.Finders == nil {
+		ref.Finders = common.NewNamedCollection(convertFinder)
+	}
 	// Return name
-	L.Push(lua.LString(ref.Name))
-	return 1
-}
-
-// LUAFuncReferenceRemote defines package.remote function in lua
-func LUAFuncReferenceRemote(L *lua.LState) int {
-	ref := LUAReferenceSelf(L)
-	if ref == nil {
-		return 0
-	}
-	if L.GetTop() == 1 {
-		// Get
-		L.Push(lua.LString(ref.Remote))
-		return 1
-	} else if L.GetTop() == 2 {
-		// Set
-		ref.Remote = L.CheckString(2)
-		return 0
-	}
-	// Invalid arguments
-	L.ArgError(0, "Invalid arguments")
-	return 0
-}
-
-// LUAFuncReferenceLocalFinder defines reference.localFinder function in lua
-func LUAFuncReferenceLocalFinder(L *lua.LState) int {
-	ref := LUAReferenceSelf(L)
-	if ref == nil {
-		return 0
-	}
-	if L.GetTop() != 2 {
-		L.ArgError(0, "Invalid arguments")
-		return 0
-	}
-	name := L.CheckString(2)
-	for _, finder := range ref.LocalFinders {
-		if finder.GetName() == name {
-			L.Push(finder.GetLUAUserData(L))
-			return 1
-		}
-	}
-	return 0
-}
-
-// LUAFuncReferencePythonLocalFinder defines reference.pythonLocalFinder function in lua
-func LUAFuncReferencePythonLocalFinder(L *lua.LState) int {
-	ref := LUAReferenceSelf(L)
-	if ref == nil {
-		return 0
-	}
-	// Create python finder
-	name := L.CheckString(2)
-	if name == "" {
-		L.ArgError(2, "Require name")
-		return 0
-	}
-	for _, finder := range ref.LocalFinders {
-		if finder.GetName() == name {
-			L.ArgError(2, fmt.Sprintf("Duplicated finder name [%v]", name))
-			return 0
-		}
-	}
-	module := L.CheckString(3)
-	if module == "" {
-		L.ArgError(3, "Require module")
-		return 0
-	}
-	finder := NewPythonLocalFinder(name, module, L.ToTable(4))
-	ref.LocalFinders = append(ref.LocalFinders, finder)
-	// Return
-	L.Push(finder.GetLUAUserData(L))
+	L.Push(ref.Finders.GetLUAUserData(L))
 	return 1
 }

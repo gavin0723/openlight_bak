@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/urfave/cli.v1"
@@ -29,10 +30,10 @@ const (
 	DirName = "runner"
 
 	// DefaultRunnerSpecFileName defines the default runner spec filename
-	DefaultRunnerSpecFileName = ".RUNNER"
+	DefaultRunnerSpecFileName = "runfile"
 
 	// CommandListFormat define the format to list commands
-	CommandListFormat = "%-20v%-64v%v"
+	CommandListFormat = "%-20v %-20v %-60v %v"
 	// ProcessListFormat define the format to list processes
 	ProcessListFormat = "%-20v%-64v%-24v%-10v%-10v"
 )
@@ -149,24 +150,31 @@ func GetCommands() []cli.Command {
 	}
 }
 
-func loadSpec(c *cli.Context) ([]*pbSpec.RunCommand, string, error) {
-	specFileName := c.String("spec")
-	if specFileName == "" {
-		repoPath, err := common.GetCurrentRepositoryPath()
-		if err != nil {
-			return nil, "", fmt.Errorf("Failed to locate current repository path: %v", err)
-		}
-		specFileName = filepath.Join(repoPath, DefaultRunnerSpecFileName)
+type _RunnerSpec struct {
+	*pbSpec.RunFile
+	Dirname string
+}
+
+func loadSpec(c *cli.Context) (*_RunnerSpec, error) {
+	filename := c.GlobalString("spec")
+	if filename == "" {
+		filename = DefaultRunnerSpecFileName
+	}
+	filename, err := filepath.Abs(filename)
+	if err != nil {
+		return nil, err
 	}
 	// Load spec file
-	loader, err := rule.NewFileLoader([]string{specFileName})
+	engine := rule.NewEngine()
+	ctx, err := engine.ParseFile(filename)
 	if err != nil {
-		return nil, "", fmt.Errorf("Failed to load spec file [%v]: %v", specFileName, err)
+		return nil, fmt.Errorf("Failed to load spec file [%v]: %v", filename, err)
 	}
-	// Return commands
-	cmds, err := loader.GetModule("runner").(runnerRule.Module).CommandSpec()
-	// Done
-	return cmds, specFileName, err
+	// Return spec
+	return &_RunnerSpec{
+		ctx.GetModule("runner").(runnerRule.Module).Spec(),
+		filepath.Dir(filename),
+	}, nil
 }
 
 func newManager(c *cli.Context) (*runner.Manager, error) {
@@ -178,14 +186,14 @@ func newManager(c *cli.Context) (*runner.Manager, error) {
 }
 
 func listCommands(c *cli.Context) error {
-	cmds, _, err := loadSpec(c)
+	spec, err := loadSpec(c)
 	if err != nil {
 		return cli.NewExitError(fmt.Sprintf("Failed to load spec: %v", err), 1)
 	}
-	fmt.Printf(CommandListFormat, "ID", "Name", "Args...")
+	fmt.Printf(CommandListFormat, "ID", "Name", "Args...", "Comment")
 	fmt.Println()
-	for _, cmd := range cmds {
-		fmt.Printf(CommandListFormat, cmd.Id, cmd.Name, cmd.Args)
+	for id, cmd := range spec.Commands {
+		fmt.Printf(CommandListFormat, id, cmd.Name, strings.Join(cmd.Args, " "), cmd.Comment)
 		fmt.Println()
 	}
 	return nil
@@ -200,17 +208,11 @@ func start(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(fmt.Sprintf("Failed to create manager: %v", err), 1)
 	}
-	cmds, specFileName, err := loadSpec(c)
+	spec, err := loadSpec(c)
 	if err != nil {
 		return cli.NewExitError(fmt.Sprintf("Failed to load spec: %v", err), 1)
 	}
-	var cmd *pbSpec.RunCommand
-	for _, c := range cmds {
-		if c.Id == id {
-			cmd = c
-			break
-		}
-	}
+	cmd := spec.Commands[id]
 	if cmd == nil {
 		return cli.NewExitError(fmt.Sprintf("Command [%v] not found", id), 1)
 	}
@@ -218,7 +220,7 @@ func start(c *cli.Context) error {
 		cmd.Args = append(cmd.Args, c.Args()...)
 	}
 	// Start it
-	proc, err := manager.Start(filepath.Dir(specFileName), cmd, detach)
+	proc, err := manager.Start(spec.Dirname, cmd, detach)
 	if err != nil {
 		return cli.NewExitError(fmt.Sprintf("Failed to start process: %v", err), 1)
 	}

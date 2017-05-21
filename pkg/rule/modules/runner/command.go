@@ -5,128 +5,84 @@
 package runner
 
 import (
-	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
-	lua "github.com/yuin/gopher-lua"
+	"errors"
+	"fmt"
 
-	LUA "github.com/ops-openlight/openlight/pkg/rule/modules/lua"
+	"github.com/yuin/gopher-lua"
+
+	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
+
+	"github.com/ops-openlight/openlight/pkg/rule/common"
 )
+
+// Ensure the interface is implemented
+var _ common.Object = (*RunCommand)(nil)
 
 // Exposed lua infos
 const (
-	LUANameRunCommand = "Command"
-	LUATypeRunCommand = "Runner-Command"
+	runCommandLUAName     = "Command"
+	runCommandLUATypeName = "runner-command"
 )
 
-// RunCommand represents the runner command
-type RunCommand struct {
-	LUA.Object
-	ID   string
-	Name string
-	Args []string
-}
+// RunCommand implements RunCommand for lua
+type RunCommand pbSpec.RunCommand
 
 // NewRunCommand creates a new RunCommand
-func NewRunCommand(id, name string, args []string, options *lua.LTable) *RunCommand {
-	var cmd = RunCommand{
-		ID:   id,
-		Name: name,
-		Args: args,
+func NewRunCommand(name, comment string, args []string, workdir string, envs []string) *RunCommand {
+	return &RunCommand{
+		Name:    name,
+		Comment: comment,
+		Args:    args,
+		Workdir: workdir,
+		Envs:    envs,
 	}
-	cmd.Object = LUA.NewObject(LUATypeRunCommand, options, &cmd)
-	// Done
-	return &cmd
 }
 
-// GetProto returns the protobuf object
-func (cmd *RunCommand) GetProto() (*pbSpec.RunCommand, error) {
-	var pbRunCommand pbSpec.RunCommand
-	pbRunCommand.Id = cmd.ID
-	pbRunCommand.Name = cmd.Name
-	pbRunCommand.Args = cmd.Args
-	// Get options
-	var err error
-	options := cmd.GetOptions()
-	if pbRunCommand.Workdir, err = LUA.TryGetStringFromTable(options, "workdir", ""); err != nil {
-		return nil, err
-	}
-	if pbRunCommand.Envs, err = LUA.TryGetStringSliceFromTable(options, "envs", nil); err != nil {
-		return nil, err
-	}
-	// Done
-	return &pbRunCommand, nil
-}
-
-// RunCommandLUAFuncs defines all lua functions for RunCommand
-var RunCommandLUAFuncs = map[string]lua.LGFunction{
-	"name":    LUAFuncRunCommandName,
-	"options": LUA.FuncObjectOptions,
-}
-
-// RegisterRunCommandType registers RunCommand type in lua
-func RegisterRunCommandType(L *lua.LState, mod *lua.LTable) {
-	// Create meta table
-	mt := L.NewTypeMetatable(LUATypeRunCommand)
-	L.SetField(mt, "new", L.NewFunction(LUARunCommandNew))
-	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), RunCommandLUAFuncs))
-	// Add type to module
-	L.SetField(mod, LUANameRunCommand, mt)
-}
-
-//////////////////////////////////////// LUA functions ////////////////////////////////////////
-
-// LUARunCommandNew defines RunCommand.new function in lua
-func LUARunCommandNew(L *lua.LState) int {
-	id := L.CheckString(1)
-	if id == "" {
-		L.ArgError(1, "Require id")
-		return 0
-	}
-	name := L.CheckString(2)
-	if name == "" {
-		L.ArgError(2, "Require name")
-		return 0
-	}
-	args, err := LUA.ConvertTableToStringSlice(L.CheckTable(3))
+// NewRunCommandFromLUA creates a new RunCommand from lua
+func NewRunCommandFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, error) {
+	name, err := params.GetString("name")
 	if err != nil {
-		L.ArgError(3, "Require arguments list")
-		return 0
+		return nil, fmt.Errorf("Invalid parameter [name]: %v", err)
 	}
-	// Create
-	cmd := NewRunCommand(id, name, args, L.ToTable(4))
-	// Return
-	L.Push(cmd.GetLUAUserData(L))
-	return 1
+	if name == "" {
+		return nil, errors.New("Require parameter [name]")
+	}
+	args, err := params.GetStringSlice("args")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [args]: %v", err)
+	}
+	comment, err := params.GetString("comment")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [comment]: %v", err)
+	}
+	workdir, err := params.GetString("workdir")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [workdir]: %v", err)
+	}
+	envs, err := params.GetStringSlice("envs")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [envs]: %v", err)
+	}
+	// Create command
+	cmd := NewRunCommand(name, comment, args, workdir, envs)
+	// Done
+	return cmd.GetLUAUserData(L), nil
 }
 
-// LUARunCommandSelf get lua RunCommand self
-func LUARunCommandSelf(L *lua.LState) *RunCommand {
-	ud := L.CheckUserData(1)
-	if pkg, ok := ud.Value.(*RunCommand); ok {
-		return pkg
-	}
-	L.ArgError(1, "RunCommand expected")
-	return nil
+// GetLUAUserData returns the lua user data
+func (cmd *RunCommand) GetLUAUserData(L *lua.LState) *lua.LUserData {
+	ud := L.NewUserData()
+	ud.Value = cmd
+	L.SetMetatable(ud, L.GetTypeMetatable(runCommandLUATypeName))
+	// Done
+	return ud
 }
 
-// LUAFuncRunCommandName defines RunCommand.id in lua
-func LUAFuncRunCommandName(L *lua.LState) int {
-	cmd := LUARunCommandSelf(L)
-	if cmd == nil {
-		return 0
-	}
-	if L.GetTop() == 1 {
-		L.Push(lua.LString(cmd.Name))
-		return 1
-	} else if L.GetTop() == 2 {
-		name := L.CheckString(2)
-		if name == "" {
-			L.ArgError(2, "Require name")
-			return 0
-		}
-		cmd.Name = name
-		return 0
-	}
-	// Invalid arguments
-	L.ArgError(0, "Invalid arguments")
-	return 0
+// registerRunCommandType registers RunCommand type in lua
+func registerRunCommandType(L *lua.LState, mod *lua.LTable) {
+	// Create meta table
+	mt := L.NewTypeMetatable(runCommandLUATypeName)
+	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewRunCommandFromLUA))
+	// Add type to module
+	L.SetField(mod, runCommandLUAName, mt)
 }
