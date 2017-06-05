@@ -1,0 +1,21 @@
+// The spec protobuf build definition
+
+syntax = "proto3";
+
+package openlight.spec;
+
+import "spec/build.proto";
+import "spec/runner.proto";
+
+option go_package = "spec";
+option java_multiple_files = true;
+option java_outer_classname = "RuleProto";
+option java_package = "com.github.openlight.spec";
+
+// The parsed rule files
+message RuleFiles {
+    // Build rule file
+    BuildFile build = 1;
+    // Run rule file
+    RunFile run = 2;
+}

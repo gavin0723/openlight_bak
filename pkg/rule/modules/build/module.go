@@ -101,8 +101,16 @@ func (m *_Module) InitLUAModule(L *lua.LState) int {
 // Spec returns the build file spec
 func (m *_Module) Spec() *pbSpec.BuildFile {
 	var buildfile pbSpec.BuildFile
-	buildfile.Package = m.pkg.GetProto()
+	if m.pkg != nil {
+		buildfile.Package = m.pkg.GetProto()
+	}
 	return &buildfile
+}
+
+// SetRuleFiles sets the rule files by this module
+func (m *_Module) SetRuleFiles(ruleFile *pbSpec.RuleFiles) error {
+	ruleFile.Build = m.Spec()
+	return nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

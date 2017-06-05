@@ -3,8 +3,11 @@
 //
 // File Name: tar.go
 // Description:
+//
 //	The tar utility
-package util
+//
+
+package utils
 
 import (
 	"archive/tar"

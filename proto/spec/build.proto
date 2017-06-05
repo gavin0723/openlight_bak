@@ -41,7 +41,8 @@ message Reference {
     string remote = 1;
     // Finders (To find the referenced repository, before clone the repository from remote)
     repeated Finder finders = 2;
-    // Path to the root of the found / cloned repository
+    // Path to the root of the found / cloned repository.
+    // Set this attribute will allow `change the root` of a repository
     string path = 3;
 }
 
@@ -78,8 +79,10 @@ message GoFinder {
 
 // Target
 message Target {
+    // Description
+    string description = 1;
     // Dependencies
-    repeated Dependency dependencies = 1;
+    repeated Dependency dependencies = 2;
     // Target
     oneof Target {
         // Command
@@ -109,10 +112,12 @@ message Dependency {
 message TargetDependency {
     // Reference name. Empty means the package itself
     string reference = 1;
+    // Path. Empty means the root path in the reference
+    string path = 2;
     // Target
-    string target = 2;
+    string target = 3;
     // Build or not
-    bool build = 5;
+    bool build = 10;
 }
 
 // Go dependency
@@ -143,8 +148,10 @@ message GoBinaryTarget {
     string package = 1;
     // Output name
     string output = 2;
-    // Go version
-    string goVersion = 3;
+    // Install the binary or not
+    bool install = 3;
+    // Environ variables. Always used to do cross compiling
+    repeated string envs = 4;
 }
 
 // Python lib target
@@ -153,8 +160,6 @@ message PythonLibTarget {
     string workdir = 1;
     // Setup filename
     string setup = 2;
-    // Output name
-    string output = 3;
 }
 
 // Docker image target
@@ -165,6 +170,10 @@ message DockerImageTarget {
     string image = 2;
     // Commands
     repeated DockerImageBuildCommand commands = 3;
+    // Push or not
+    bool push = 4;
+    // Set the `latest` tag
+    bool setLatestTag = 5;
 }
 
 message DockerImageBuildCommand {
@@ -274,15 +283,17 @@ message File {
     // Reference. Empty means the package itself.
     string reference = 1;
     // File names.
-    repeated string filenames = 2;
+    string filename = 2;
 }
 
 // Artifact
 message Artifact {
     // Reference. Empty means the package itself.
     string reference = 1;
+    // Path (in repository for finding target)
+    string path = 2;
     // Target
-    string target = 2;
-    // File names
-    repeated string filenames = 3;
+    string target = 3;
+    // Filename in artifact
+    string filename = 4;
 }

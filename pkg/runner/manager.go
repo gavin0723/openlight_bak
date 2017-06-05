@@ -5,6 +5,8 @@
 package runner
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -13,10 +15,8 @@ import (
 
 	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 
-	"crypto/rand"
-	"encoding/hex"
-
-	"github.com/ops-openlight/openlight/pkg/util"
+	"github.com/ops-openlight/openlight/pkg/repository"
+	"github.com/ops-openlight/openlight/pkg/utils"
 )
 
 // Filenames
@@ -41,7 +41,7 @@ type Manager struct {
 
 // NewManager creates a new Manager
 func NewManager(root string) (*Manager, error) {
-	root, err := util.GetRealPath(root)
+	root, err := utils.GetRealPath(root)
 	if err != nil {
 		return nil, err
 	}
@@ -60,6 +60,18 @@ func NewManager(root string) (*Manager, error) {
 	return &Manager{
 		root: root,
 	}, nil
+}
+
+// NewManageByRepository creates a new RepositoryManager
+func NewManageByRepository(repo *repository.LocalRepository) (*Manager, error) {
+	if repo == nil {
+		return nil, errors.New("Require repository")
+	}
+	dirname, err := repo.InitOutputDir("", _OutputDirname)
+	if err != nil {
+		return nil, err
+	}
+	return NewManager(dirname)
 }
 
 // Start a new command
@@ -191,3 +203,7 @@ func (manager *Manager) Clean() error {
 	}
 	return nil
 }
+
+const (
+	_OutputDirname = "runner"
+)

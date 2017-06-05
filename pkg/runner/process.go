@@ -15,6 +15,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/ptypes"
+
 	pbSpec "github.com/ops-openlight/openlight/protoc-gen-go/spec"
 )
 

@@ -37,7 +37,8 @@ func registerTargetType(L *lua.LState, mod *lua.LTable) {
 	mt := L.NewTypeMetatable(targetLUATypeName)
 	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewGeneralTargetFromLUA))
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"dependent": luaFuncTargetDependent,
+		"description": luaFuncTargetDescription,
+		"dependent":   luaFuncTargetDependent,
 	}))
 	L.SetField(mod, targetLUAName, mt)
 }
@@ -47,7 +48,8 @@ func registerCommandTargetType(L *lua.LState, mod *lua.LTable) {
 	mt := L.NewTypeMetatable(commandTargetLUATypeName)
 	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewCommandTargetFromLUA))
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"dependent": luaFuncTargetDependent,
+		"description": luaFuncTargetDescription,
+		"dependent":   luaFuncTargetDependent,
 	}))
 	L.SetField(mod, commandTargetLUAName, mt)
 }
@@ -57,7 +59,8 @@ func registerGoBinaryTargetType(L *lua.LState, mod *lua.LTable) {
 	mt := L.NewTypeMetatable(goBinaryTargetLUATypeName)
 	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewGoBinaryTargetFromLUA))
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"dependent": luaFuncTargetDependent,
+		"description": luaFuncTargetDescription,
+		"dependent":   luaFuncTargetDependent,
 	}))
 	L.SetField(mod, goBinaryTargetLUAName, mt)
 }
@@ -67,7 +70,8 @@ func registerPythonLibTargetType(L *lua.LState, mod *lua.LTable) {
 	mt := L.NewTypeMetatable(pythonLibTargetLUATypeName)
 	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewPythonLibTargetFromLUA))
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"dependent": luaFuncTargetDependent,
+		"description": luaFuncTargetDescription,
+		"dependent":   luaFuncTargetDependent,
 	}))
 	L.SetField(mod, pythonLibTargetLUAName, mt)
 }
@@ -77,6 +81,10 @@ type Target interface {
 	common.Object
 	// Dependent on a dependency
 	Dependent(dep *Dependency)
+	// SetDescription sets description
+	SetDescription(value string)
+	// GetDescription gets description
+	GetDescription() string
 	// GetProto returns the protobuf object
 	GetProto() *pbSpec.Target
 }
@@ -89,6 +97,16 @@ func (t *_Target) Dependent(dep *Dependency) {
 	if dep != nil {
 		t.Dependencies = append(t.Dependencies, (*pbSpec.Dependency)(dep))
 	}
+}
+
+// SetDescription sets description
+func (t *_Target) SetDescription(value string) {
+	t.Description = value
+}
+
+// GetDescription gets description
+func (t *_Target) GetDescription() string {
+	return t.Description
 }
 
 // GetProto returns the protobuf object
@@ -183,18 +201,23 @@ func NewGoBinaryTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LVal
 	if output == "" {
 		return nil, errors.New("Require output")
 	}
-	goVersion, err := params.GetString("goVersion")
+	install, err := params.GetBool("install")
 	if err != nil {
-		return nil, fmt.Errorf("Invalid parameter [goVersion]: %v", err)
+		return nil, fmt.Errorf("Invalid parameter [install]: %v", err)
+	}
+	envs, err := params.GetStringSlice("envs")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [envs]: %v", err)
 	}
 	// Create a new target
 	target := &GoBinaryTarget{
 		_Target: _Target{
 			Target: &pbSpec.Target_GoBinary{
 				GoBinary: &pbSpec.GoBinaryTarget{
-					Package:   pkg,
-					Output:    output,
-					GoVersion: goVersion,
+					Package: pkg,
+					Output:  output,
+					Install: install,
+					Envs:    envs,
 				},
 			},
 		},
@@ -227,10 +250,6 @@ func NewPythonLibTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LVa
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [setup]: %v", err)
 	}
-	output, err := params.GetString("output")
-	if err != nil {
-		return nil, fmt.Errorf("Invalid parameter [output]: %v", err)
-	}
 	// Create a new target
 	target := &PythonLibTarget{
 		_Target: _Target{
@@ -238,7 +257,6 @@ func NewPythonLibTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LVa
 				PythonLib: &pbSpec.PythonLibTarget{
 					Workdir: workdir,
 					Setup:   setup,
-					Output:  output,
 				},
 			},
 		},
@@ -266,6 +284,20 @@ func LUATargetSelf(L *lua.LState) Target {
 	}
 	L.ArgError(1, "Target expected")
 	return nil
+}
+
+// luaFuncTargetDescription defines target.description function in lua
+func luaFuncTargetDescription(L *lua.LState) int {
+	target := LUATargetSelf(L)
+	if L.GetTop() == 1 {
+		L.Push(lua.LString(target.GetDescription()))
+		return 1
+	} else if L.GetTop() == 2 {
+		target.SetDescription(L.CheckString(2))
+		return 0
+	}
+	L.ArgError(3, "Invalid argument")
+	return 0
 }
 
 // luaFuncTargetDependent defines target.dependent function in lua

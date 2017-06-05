@@ -3,8 +3,11 @@
 //
 // File Name: path.go
 // Description:
+//
 //	The path helper
-package util
+//
+
+package utils
 
 import (
 	"os"

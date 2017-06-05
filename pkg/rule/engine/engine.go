@@ -5,8 +5,9 @@
 package engine
 
 import (
-	"github.com/ops-openlight/openlight/pkg/rule/common"
 	"github.com/yuin/gopher-lua"
+
+	"github.com/ops-openlight/openlight/pkg/rule/common"
 )
 
 // Engine implements rule engien

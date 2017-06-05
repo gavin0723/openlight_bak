@@ -3,12 +3,16 @@
 //
 // File Name: artifact.go
 // Description:
-//	The artifact
+//
+
 package artifact
 
+// Artifact defines the artifact
 type Artifact interface {
-	GetName() string                 // Get the name
-	GetType() string                 // The the type
-	GetAttr(name string) interface{} // Get the attribute
-	String() string                  // Get the string representation
+	// GetType returns the artifact type
+	GetType() string
+	// GetPath returns the (original) path of this artifact
+	GetPath() string
+	// String returns the string
+	String() string
 }

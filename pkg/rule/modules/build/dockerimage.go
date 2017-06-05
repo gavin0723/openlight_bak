@@ -29,18 +29,19 @@ func registerDockerImageTargetType(L *lua.LState, mod *lua.LTable) {
 	mt := L.NewTypeMetatable(dockerImageTargetLUATypeName)
 	L.SetField(mt, "new", common.NewLUANewObjectFunction(L, NewDockerImageTargetFromLUA))
 	L.SetField(mt, "__index", L.SetFuncs(L.NewTable(), map[string]lua.LGFunction{
-		"dependent":  luaFuncTargetDependent,
-		"from":       luaFuncDockerImageTargetFrom,
-		"label":      luaFuncDockerImageTargetLabel,
-		"add":        luaFuncDockerImageTargetAdd,
-		"copy":       luaFuncDockerImageTargetCopy,
-		"run":        luaFuncDockerImageTargetRun,
-		"entrypoint": luaFuncDockerImageTargetEntrypoint,
-		"expose":     luaFuncDockerImageTargetExpose,
-		"volume":     luaFuncDockerImageTargetVolume,
-		"user":       luaFuncDockerImageTargetUser,
-		"workdir":    luaFuncDockerImageTargetWorkdir,
-		"env":        luaFuncDockerImageTargetEnv,
+		"description": luaFuncTargetDescription,
+		"dependent":   luaFuncTargetDependent,
+		"from":        luaFuncDockerImageTargetFrom,
+		"label":       luaFuncDockerImageTargetLabel,
+		"add":         luaFuncDockerImageTargetAdd,
+		"copy":        luaFuncDockerImageTargetCopy,
+		"run":         luaFuncDockerImageTargetRun,
+		"entrypoint":  luaFuncDockerImageTargetEntrypoint,
+		"expose":      luaFuncDockerImageTargetExpose,
+		"volume":      luaFuncDockerImageTargetVolume,
+		"user":        luaFuncDockerImageTargetUser,
+		"workdir":     luaFuncDockerImageTargetWorkdir,
+		"env":         luaFuncDockerImageTargetEnv,
 	}))
 	L.SetField(mod, dockerImageTargetLUAName, mt)
 }
@@ -66,13 +67,23 @@ func NewDockerImageTargetFromLUA(L *lua.LState, params common.Parameters) (lua.L
 	if image == "" {
 		return nil, errors.New("Require image")
 	}
+	push, err := params.GetBool("push")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [push]: %v", err)
+	}
+	setLatestTag, err := params.GetBool("setLatestTag")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [setLatestTag]: %v", err)
+	}
 	// Create a new target
 	target := &DockerImageTarget{
 		_Target: _Target{
 			Target: &pbSpec.Target_DockerImage{
 				DockerImage: &pbSpec.DockerImageTarget{
-					Repository: repository,
-					Image:      image,
+					Repository:   repository,
+					Image:        image,
+					Push:         push,
+					SetLatestTag: setLatestTag,
 				},
 			},
 		},

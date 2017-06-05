@@ -12,10 +12,6 @@ import (
 
 // GetCommands Get build commands
 func GetCommands() []cli.Command {
-	return []cli.Command{
-		{
-			Name:  "build",
-			Usage: "Build packages and targets",
-		},
-	}
+	var builder Builder
+	return builder.GetCommands()
 }

@@ -83,16 +83,21 @@ func (m *_Module) InitLUAModule(L *lua.LState) int {
 
 // Commands returns all commands
 func (m *_Module) Spec() *pbSpec.RunFile {
-	if m.commands == nil {
-		return nil
-	}
 	var runfile pbSpec.RunFile
-	runfile.Commands = make(map[string]*pbSpec.RunCommand)
-	for _, item := range m.commands.Items() {
-		runfile.Commands[item.Name] = (*pbSpec.RunCommand)(item.Value.(*RunCommand))
+	if m.commands != nil {
+		runfile.Commands = make(map[string]*pbSpec.RunCommand)
+		for _, item := range m.commands.Items() {
+			runfile.Commands[item.Name] = (*pbSpec.RunCommand)(item.Value.(*RunCommand))
+		}
 	}
 	// Done
 	return &runfile
+}
+
+// SetRuleFiles sets the rule files by this module
+func (m *_Module) SetRuleFiles(ruleFile *pbSpec.RuleFiles) error {
+	ruleFile.Run = m.Spec()
+	return nil
 }
 
 //////////////////////////////////////// LUA functions ////////////////////////////////////////

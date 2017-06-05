@@ -31,16 +31,17 @@ pkg:options():set("defaultTargets", { "all" })
 -- Define a reference. All dependent packages must define references.
 -- Format: table with keys:
 --  * remote (git address), required
---  * path, optional
+--  * path, optional. Use this attribute to change the root the a repository
+--    NOTE: Path is rarely used
 ref = build.Reference.new({ remote = "github.com/ops-openlight/somepackage" })
 
 -- Add reference
 -- Format: table with keys:
 --  * name
 -- * Reference (object)
-pkg:references():add("github.com/ops-openlight/somepackage", ref)
+pkg:references():add("somepackage", ref)
 -- You can get the reference in this way:
-ref = pkg:references():get("github.com/ops-openlight/somepackage")
+ref = pkg:references():get("somepackage")
 
 -- Create finders for references
 finder = build.PythonFinder.new({
@@ -75,10 +76,11 @@ pkg:targets():add("cli", cli)
 -- Define the target dependency
 -- Format: table with keys
 --  * reference, optional
+--  * path, optional
 --  * target
 --  * build, optional
 cli:dependent(build.TargetDependency.new({
-    reference = "github.com/ops-openlight/somepackage",
+    reference = "somepackage",
     target = "sometarget",
     -- Build the target or just prepare the dependency
     build = true

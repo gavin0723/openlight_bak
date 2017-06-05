@@ -3,63 +3,95 @@
 //
 // File Name: docker.go
 // Description:
-//	The docker artifact
+//
+
 package artifact
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 )
 
 const (
-	ArtifactTypeDocker = "docker"
-
-	DockerArtifactAttrFullname   = "fullname"
-	DockerArtifactAttrRepository = "repository"
-	DockerArtifactAttrImage      = "image"
-	DockerArtifactAttrTag        = "tag"
+	// ArtifactTypeDockerImage defines the dockerimage artifact name
+	ArtifactTypeDockerImage = "DockerImage"
 )
 
-type DockerArtifact struct {
-	Name       string `json:"name" yaml:"name"`         // The name of this artifact
-	Fullname   string `json:"fullname" yaml:"fullname"` // The fullname of the image
+const (
+	dockerImageFileName = "dockerimage.json"
+)
+
+// Ensure the interface is implemented
+var _ Artifact = (*DockerImageArtifact)(nil)
+
+// DockerImageArtifact implements Aritfact interface for docker image
+type DockerImageArtifact struct {
+	Path       string `json:"-" yaml:"-"`
 	Repository string `json:"repository" yaml:"repository"`
 	Image      string `json:"image" yaml:"image"`
 	Tag        string `json:"tag" yaml:"tag"`
 }
 
-func NewDockerArtifact(name, fullname, repository, image, tag string) *DockerArtifact {
-	return &DockerArtifact{
-		Name:       name,
-		Fullname:   fullname,
-		Repository: repository,
-		Image:      image,
-		Tag:        tag,
+// NewDockerImageArtifact creates a new DockerImageArtifact
+func NewDockerImageArtifact(path, repository, image, tag string) *DockerImageArtifact {
+	return &DockerImageArtifact{path, repository, image, tag}
+}
+
+// NewNewDockerImageArtifactFromPath creates a new DockerImageArtifact from path (which is dumped by dump method)
+func NewNewDockerImageArtifactFromPath(p string) (*DockerImageArtifact, error) {
+	file, err := os.Open(filepath.Join(p, dockerImageFileName))
+	if err != nil {
+		return nil, err
 	}
-}
-
-func (this *DockerArtifact) GetName() string {
-	return this.Name
-}
-
-func (this *DockerArtifact) GetType() string {
-	return ArtifactTypeDocker
-}
-
-func (this *DockerArtifact) GetAttr(name string) interface{} {
-	switch name {
-	case DockerArtifactAttrFullname:
-		return this.Fullname
-	case DockerArtifactAttrRepository:
-		return this.Repository
-	case DockerArtifactAttrImage:
-		return this.Image
-	case DockerArtifactAttrTag:
-		return this.Tag
-	default:
-		return nil
+	defer file.Close()
+	// Json decode
+	var artifact DockerImageArtifact
+	if err := json.NewDecoder(file).Decode(&artifact); err != nil {
+		return nil, err
 	}
+	return &artifact, nil
 }
 
-func (this *DockerArtifact) String() string {
-	return fmt.Sprintf("%s: %s", ArtifactTypeDocker, this.Fullname)
+// GetType returns the artifact type
+func (artifact *DockerImageArtifact) GetType() string {
+	return ArtifactTypeDockerImage
+}
+
+// GetPath returns the (original) path of this artifact
+func (artifact *DockerImageArtifact) GetPath() string {
+	return artifact.Path
+}
+
+// String returns the string
+func (artifact *DockerImageArtifact) String() string {
+	return fmt.Sprintf("%s: %s", artifact.GetType(), artifact.FullName())
+}
+
+// FullName returns the image fullname
+func (artifact *DockerImageArtifact) FullName() string {
+	if artifact.Repository != "" {
+		return fmt.Sprintf("%v/%v:%v", artifact.Repository, artifact.Image, artifact.Tag)
+	}
+	return fmt.Sprintf("%v:%v", artifact.Image, artifact.Tag)
+}
+
+// LatestName returns the image latest name
+func (artifact *DockerImageArtifact) LatestName() string {
+	if artifact.Repository != "" {
+		return fmt.Sprintf("%v/%v:latest", artifact.Repository, artifact.Image)
+	}
+	return fmt.Sprintf("%v:latest", artifact.Image)
+}
+
+// Dump will write "dockerimage.json" under its path attribute
+func (artifact *DockerImageArtifact) Dump() error {
+	file, err := os.Create(filepath.Join(artifact.Path, dockerImageFileName))
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	// Json encode
+	return json.NewEncoder(file).Encode(artifact)
 }

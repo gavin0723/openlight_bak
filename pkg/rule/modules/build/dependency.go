@@ -57,6 +57,7 @@ func NewTargetDependencyFromLUA(L *lua.LState, params common.Parameters) (lua.LV
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [reference]: %v", err)
 	}
+	path, err := params.GetString("path")
 	target, err := params.GetString("target")
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [target]: %v", err)
@@ -70,6 +71,7 @@ func NewTargetDependencyFromLUA(L *lua.LState, params common.Parameters) (lua.LV
 		Dependency: &pbSpec.Dependency_Target{
 			Target: &pbSpec.TargetDependency{
 				Reference: reference,
+				Path:      path,
 				Target:    target,
 				Build:     build,
 			},

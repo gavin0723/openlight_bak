@@ -25,3 +25,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+# Openlight
+op-out/
+*/op-out/

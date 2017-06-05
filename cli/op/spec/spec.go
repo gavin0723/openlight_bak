@@ -14,9 +14,8 @@ import (
 	"gopkg.in/urfave/cli.v1"
 
 	"github.com/golang/protobuf/jsonpb"
+
 	"github.com/ops-openlight/openlight/pkg/rule"
-	"github.com/ops-openlight/openlight/pkg/rule/modules/build"
-	"github.com/ops-openlight/openlight/pkg/rule/modules/runner"
 )
 
 func parseSpec(c *cli.Context) error {
@@ -40,23 +39,15 @@ func parseSpec(c *cli.Context) error {
 		out = os.Stdout
 	}
 	jMarshaler := jsonpb.Marshaler{}
-	// Write build module
-	buildfile := ctx.GetModule("build").(build.Module).Spec()
-	if buildfile != nil {
-		if err := jMarshaler.Marshal(out, buildfile); err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to dump BuildFile, error: %v", err), 1)
-		}
-		fmt.Fprintln(out)
+	// Write the rule files
+	ruleFiles, err := ctx.GetRule()
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
 	}
-	// Write runner module
-	runfile := ctx.GetModule("runner").(runner.Module).Spec()
-	if runfile != nil {
-		if err := jMarshaler.Marshal(out, runfile); err != nil {
-			return cli.NewExitError(fmt.Sprintf("Failed to dump RunnerFile, error: %v", err), 1)
-		}
-		fmt.Fprintln(out)
-
+	if err := jMarshaler.Marshal(out, ruleFiles); err != nil {
+		return cli.NewExitError(fmt.Sprintf("Failed to dump RuleFiles, error: %v", err), 1)
 	}
+	fmt.Fprintln(out)
 	// Done
 	return nil
 }

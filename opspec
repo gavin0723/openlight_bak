@@ -1,0 +1,27 @@
+-- vim: set ft=lua:
+-- Openlight's openlight spec file
+-- op: ruleVersion=v1
+
+-- We only have a single target: The op command line tool in this project
+
+build = require("build")
+
+pkg = build.package({
+    name = "Openlight",
+    author = "lipixun",
+    url = "https://github.com/ops-openlight/openlight",
+    })
+
+pkg:options():set("defaultTargets", { "cli" })
+
+cli = build.GoBinaryTarget.new({ package = "github.com/ops-openlight/openlight/cli/op", output = "op", install = true })
+
+cli:description("Openlight Command Line Tool")
+
+cli:dependent(
+    build.GoDependency.new({ package = "gopkg.in/urfave/cli.v1" }),
+    build.GoDependency.new({ package = "github.com/Sirupsen/logrus" }),
+    build.GoDependency.new({ package = "github.com/satori/go.uuid" })
+    )
+
+pkg:targets():add("cli", cli)

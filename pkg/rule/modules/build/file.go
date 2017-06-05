@@ -53,19 +53,19 @@ func NewFileFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, error)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [reference]: %v", err)
 	}
-	filenames, err := params.GetStringSlice("filenames")
+	filename, err := params.GetString("filename")
 	if err != nil {
-		return nil, fmt.Errorf("Invalid parameter [filenames]: %v", err)
+		return nil, fmt.Errorf("Invalid parameter [filename]: %v", err)
 	}
-	if len(filenames) == 0 {
-		return nil, errors.New("Require at least one filename")
+	if filename == "" {
+		return nil, errors.New("Require filename")
 	}
 	// Create file source
 	f := &FileSource{
 		Source: &pbSpec.FileSource_File{
 			File: &pbSpec.File{
 				Reference: reference,
-				Filenames: filenames,
+				Filename:  filename,
 			},
 		},
 	}
@@ -79,21 +79,29 @@ func NewArtifactFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, er
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [reference]: %v", err)
 	}
+	path, err := params.GetString("path")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [path]: %v", err)
+	}
 	target, err := params.GetString("target")
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [target]: %v", err)
 	}
-	filenames, err := params.GetStringSlice("filenames")
+	if target == "" {
+		return nil, errors.New("Require target")
+	}
+	filename, err := params.GetString("filename")
 	if err != nil {
-		return nil, fmt.Errorf("Invalid parameter [filenames]: %v", err)
+		return nil, fmt.Errorf("Invalid parameter [filename]: %v", err)
 	}
 	// Create file source
 	f := &FileSource{
 		Source: &pbSpec.FileSource_Artifact{
 			Artifact: &pbSpec.Artifact{
 				Reference: reference,
+				Path:      path,
 				Target:    target,
-				Filenames: filenames,
+				Filename:  filename,
 			},
 		},
 	}
