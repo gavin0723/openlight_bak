@@ -78,6 +78,7 @@ func (builder *Builder) BuildTarget(name string, options ...BuildTargetOption) e
 		option.set(&_targetOptions)
 		option.setdep(&_depOptions)
 	}
+	_depOptions.BuildTarget = true
 	// Get Target
 	pkg, err := builder.RootRepository().RootPackage()
 	if err != nil {

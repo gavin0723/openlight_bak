@@ -25,10 +25,11 @@ type BuildTargetDependencyOption interface {
 }
 
 type _BuildTargetDependencyOptions struct {
-	NoPip    bool // Do not build pip dependencies
-	NoGo     bool // Do not build go dependencies
-	NoTarget bool // Do not build target dependencies
-	Update   bool // Update the dependencies or not
+	NoPip       bool // Do not build pip dependencies
+	NoGo        bool // Do not build go dependencies
+	NoTarget    bool // Do not build target dependencies
+	Update      bool // Update the dependencies or not
+	BuildTarget bool // Build target itself
 }
 
 func (o *_BuildTargetDependencyOptions) GetNoPip() bool {
@@ -291,6 +292,6 @@ func (builder *Builder) buildTargetDependency(sourceTarget *repository.Target, s
 
 	// Build target
 	var targetOptions _BuildTargetOption
-	targetOptions.noBuild = !spec.Build
+	targetOptions.noBuild = !options.BuildTarget || !spec.Build
 	return builder.buildTarget(target, &targetOptions, options)
 }
