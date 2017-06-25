@@ -102,7 +102,7 @@ func (builder *DockerImageTargetBuilder) Build(ctx buildcontext.Context) (artifa
 				return nil, errors.New("Invalid docker command")
 			}
 			dirname := uuid.NewV4().String()
-			log.Debugln("DockerImageTargetBuilder.Build: Generate tar dirname [%v] for dest path [%v]", dirname, cmd.GetPath())
+			log.Debugf("DockerImageTargetBuilder.Build: Generate tar dirname [%v] for dest path [%v]", dirname, cmd.GetPath())
 			if err := builder.feedStreamForAddCopy(&feedStream, cmd.GetFile(), dirname, ctx); err != nil {
 				return nil, err
 			}
@@ -118,7 +118,7 @@ func (builder *DockerImageTargetBuilder) Build(ctx buildcontext.Context) (artifa
 				return nil, errors.New("Invalid docker command")
 			}
 			dirname := uuid.NewV4().String()
-			log.Debugln("DockerImageTargetBuilder.Build: Generate tar dirname [%v] for dest path [%v]", dirname, cmd.GetPath())
+			log.Debugf("DockerImageTargetBuilder.Build: Generate tar dirname [%v] for dest path [%v]", dirname, cmd.GetPath())
 			if err := builder.feedStreamForAddCopy(&feedStream, cmd.GetFile(), dirname, ctx); err != nil {
 				return nil, err
 			}
@@ -406,7 +406,7 @@ func (builder *DockerImageTargetBuilder) buildDockerImage(docker *dockerClient.C
 		text := scanner.Text()
 		err := json.Unmarshal([]byte(text), &data)
 		if err != nil {
-			log.Warnln("Failed to decode docker response [%v]: %v", err, text)
+			log.Warnf("Failed to decode docker response [%v]: %v", err, text)
 			continue
 		}
 		// Check response data
@@ -493,7 +493,7 @@ func (s *_DockerImageFeedStream) WriteTar(writer *tar.Writer) error {
 	// Write bytes
 	log.Debugln("_DockerImageFeedStream.WriteTar: Write bytes")
 	for _, feedBytes := range s.Bytes {
-		log.Debugln("_DockerImageFeedStream.WriteTar: Write bytes: %v", feedBytes.Dest)
+		log.Debugf("_DockerImageFeedStream.WriteTar: Write bytes: %v", feedBytes.Dest)
 		if err := s.writeData2Tar([]byte(feedBytes.Bytes), feedBytes.Dest, writer); err != nil {
 			return fmt.Errorf("Failed to write bytes to [%v]: %v", feedBytes.Dest, err)
 		}
@@ -501,7 +501,7 @@ func (s *_DockerImageFeedStream) WriteTar(writer *tar.Writer) error {
 	// Write file
 	log.Debugln("_DockerImageFeedStream.WriteTar: Write files")
 	for _, feedFile := range s.Files {
-		log.Debugln("_DockerImageFeedStream.WriteTar: Write files: %v to %v", feedFile.Source, feedFile.Dest)
+		log.Debugf("_DockerImageFeedStream.WriteTar: Write files: %v to %v", feedFile.Source, feedFile.Dest)
 		if err := s.writePath2Tar(feedFile.Source, feedFile.Dest, writer); err != nil {
 			return fmt.Errorf("Failed to write file [%v] to [%v]: %v", feedFile.Source, feedFile.Dest, err)
 		}

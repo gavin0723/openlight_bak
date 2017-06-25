@@ -93,5 +93,5 @@ func (target *Target) InitOutputDir(name string) (string, error) {
 
 // GetOutputDir returns the output dir name
 func (target *Target) GetOutputDir(name string) string {
-	return filepath.Join(target.path, "op-out", name)
+	return filepath.Join(target.path, "op-out", name, target.name)
 }
