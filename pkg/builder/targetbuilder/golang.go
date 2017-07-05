@@ -157,7 +157,12 @@ func (builder *GoBinaryTargetBuilder) installGoBinary(outputPath, outputName str
 		return fmt.Errorf("Failed to open output binary file: %v", err)
 	}
 	defer rfile.Close()
-	wfile, err := os.OpenFile(filepath.Join(goPath, "bin", outputName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+	rfileInfo, err := rfile.Stat()
+	if err != nil {
+		log.Errorln("Failed to stat opened output file:", err)
+		return fmt.Errorf("Failed to stat opened output file: %v", err)
+	}
+	wfile, err := os.OpenFile(filepath.Join(goPath, "bin", outputName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, rfileInfo.Mode())
 	if err != nil {
 		log.Errorln("Failed to create installing binary file:", err)
 		return fmt.Errorf("Failed to create installing binary file: %v", err)
