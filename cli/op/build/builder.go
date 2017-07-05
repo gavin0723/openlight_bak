@@ -9,15 +9,16 @@ import (
 	"os"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/fatih/color"
 	"gopkg.in/urfave/cli.v1"
 
+	"github.com/ops-openlight/openlight/pkg/artifact"
 	opbuilder "github.com/ops-openlight/openlight/pkg/builder"
 	"github.com/ops-openlight/openlight/pkg/repository"
 )
 
 // Builder implements build command line functions
-type Builder struct {
-}
+type Builder struct{}
 
 // GetCommands returns the commands
 func (builder *Builder) GetCommands() []cli.Command {
@@ -181,6 +182,8 @@ func (builder *Builder) build(c *cli.Context) error {
 	if c.Bool("no-go") {
 		options = append(options, opbuilder.WithDonotBuildGoDependencyOption())
 	}
+	// Write tag
+	log.Infoln("Build Tag:", color.YellowString("%v", b.Tag()))
 	// Build deps
 	targets, err := builder.getTargets(c, repo)
 	if err != nil {
@@ -189,6 +192,31 @@ func (builder *Builder) build(c *cli.Context) error {
 	for _, target := range targets {
 		if err := b.BuildTarget(target.Name(), options...); err != nil {
 			return cli.NewExitError(fmt.Sprintf("Failed to build target: %v", err), 1)
+		}
+	}
+	// Write all artifacts
+	var files, dockerImages []artifact.Artifact
+	for _, result := range b.GetBuildResults() {
+		if result.Artifact() == nil {
+			continue
+		}
+		switch result.Artifact().GetType() {
+		case artifact.ArtifactTypeFile:
+			files = append(files, result.Artifact())
+		case artifact.ArtifactTypeDockerImage:
+			dockerImages = append(dockerImages, result.Artifact())
+		}
+	}
+	if len(files) > 0 {
+		log.Infoln("Generated files:")
+		for _, f := range files {
+			log.Info("\t", color.GreenString("%v", f.String()))
+		}
+	}
+	if len(dockerImages) > 0 {
+		log.Infoln("Generated docker images:")
+		for _, image := range dockerImages {
+			log.Info("\t", color.GreenString("%v", image.String()))
 		}
 	}
 	// Done

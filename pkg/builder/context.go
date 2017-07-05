@@ -78,6 +78,15 @@ func (ctx *BuildContext) GetBuildResult(target *repository.Target) *buildcontext
 	return ctx.buildResults[target.Key()]
 }
 
+// GetBuildResults returns all build resutls
+func (ctx *BuildContext) GetBuildResults() []*buildcontext.TargetBuildResult {
+	var results []*buildcontext.TargetBuildResult
+	for _, r := range ctx.buildResults {
+		results = append(results, r)
+	}
+	return results
+}
+
 func (ctx *BuildContext) addBuildResult(target *repository.Target, result *buildcontext.TargetBuildResult) {
 	if ctx.buildResults == nil {
 		ctx.buildResults = make(map[string]*buildcontext.TargetBuildResult)

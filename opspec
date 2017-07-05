@@ -21,7 +21,8 @@ cli:description("Openlight Command Line Tool")
 cli:dependent(
     build.GoDependency.new({ package = "gopkg.in/urfave/cli.v1" }),
     build.GoDependency.new({ package = "github.com/Sirupsen/logrus" }),
-    build.GoDependency.new({ package = "github.com/satori/go.uuid" })
+    build.GoDependency.new({ package = "github.com/satori/go.uuid" }),
+    build.GoDependency.new({ package = "github.com/fatih/color" })
     )
 
 pkg:targets():add("cli", cli)

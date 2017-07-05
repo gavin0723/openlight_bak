@@ -139,6 +139,9 @@ func (builder *Builder) buildTarget(target *repository.Target, targetOptions *_B
 		log.Errorln("No build result returned")
 		return errors.New("No build result returned")
 	}
+	if result.Artifact() != nil {
+		log.Infoln("Generated artifact:", result.Artifact().String())
+	}
 	builder.addBuildResult(target, result)
 
 	// Done
