@@ -31,6 +31,32 @@ func WithDonotBuildTargetOption() BuildTargetOption {
 	return new(_DonotBuildTargetOption)
 }
 
+type _DonotInstallGoBinaryOption struct{}
+
+func (o *_DonotInstallGoBinaryOption) set(options *_BuildTargetOption) {
+	options.goBinaryTarget.NoInstall = true
+}
+
+func (o *_DonotInstallGoBinaryOption) setdep(options *_BuildTargetDependencyOptions) {}
+
+// WithDonotInstallGoBinaryOption creates an option to avoid to install go binary
+func WithDonotInstallGoBinaryOption() BuildTargetOption {
+	return new(_DonotInstallGoBinaryOption)
+}
+
+type _IgnoreInstallGoBinaryErrorOption struct{}
+
+func (o *_IgnoreInstallGoBinaryErrorOption) set(options *_BuildTargetOption) {
+	options.goBinaryTarget.IgnoreInstallError = true
+}
+
+func (o *_IgnoreInstallGoBinaryErrorOption) setdep(options *_BuildTargetDependencyOptions) {}
+
+// WithIgnoreInstallGoBinaryErrorOption creates an option to ignore go install error
+func WithIgnoreInstallGoBinaryErrorOption() BuildTargetOption {
+	return new(_IgnoreInstallGoBinaryErrorOption)
+}
+
 //
 //	Update dependency option
 //

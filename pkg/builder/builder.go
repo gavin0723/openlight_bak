@@ -57,6 +57,8 @@ type BuildTargetOption interface {
 
 type _BuildTargetOption struct {
 	noBuild bool
+	// Target options
+	goBinaryTarget targetbuilder.GoBinaryTargetBuildOptions
 }
 
 func (o *_BuildTargetOption) GetNoBuild() bool {
@@ -64,6 +66,13 @@ func (o *_BuildTargetOption) GetNoBuild() bool {
 		return false
 	}
 	return o.noBuild
+}
+
+func (o *_BuildTargetOption) GetGoBinaryTarget() targetbuilder.GoBinaryTargetBuildOptions {
+	if o == nil {
+		return targetbuilder.GoBinaryTargetBuildOptions{}
+	}
+	return o.goBinaryTarget
 }
 
 func (o *_BuildTargetOption) String() string {
@@ -161,7 +170,7 @@ func (builder *Builder) buildCommandTarget(target *repository.Target, spec *pbSp
 }
 
 func (builder *Builder) buildGoBinaryTarget(target *repository.Target, spec *pbSpec.GoBinaryTarget, options *_BuildTargetOption) (*buildcontext.TargetBuildResult, error) {
-	b, err := targetbuilder.NewGoBinaryTargetBuilder(target, spec)
+	b, err := targetbuilder.NewGoBinaryTargetBuilder(target, spec, options.GetGoBinaryTarget())
 	if err != nil {
 		return nil, err
 	}

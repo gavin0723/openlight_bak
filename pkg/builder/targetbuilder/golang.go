@@ -36,19 +36,26 @@ import (
 
 // GoBinaryTargetBuilder builds go binary target
 type GoBinaryTargetBuilder struct {
-	target *repository.Target
-	spec   *pbSpec.GoBinaryTarget
+	target  *repository.Target
+	spec    *pbSpec.GoBinaryTarget
+	options GoBinaryTargetBuildOptions
+}
+
+// GoBinaryTargetBuildOptions defines the go binary target build options
+type GoBinaryTargetBuildOptions struct {
+	NoInstall          bool
+	IgnoreInstallError bool
 }
 
 // NewGoBinaryTargetBuilder creates a new GoBinaryTargetBuilder
-func NewGoBinaryTargetBuilder(target *repository.Target, spec *pbSpec.GoBinaryTarget) (*GoBinaryTargetBuilder, error) {
+func NewGoBinaryTargetBuilder(target *repository.Target, spec *pbSpec.GoBinaryTarget, options GoBinaryTargetBuildOptions) (*GoBinaryTargetBuilder, error) {
 	if target == nil {
 		return nil, errors.New("Require target")
 	}
 	if spec == nil {
 		return nil, errors.New("Require spec")
 	}
-	return &GoBinaryTargetBuilder{target, spec}, nil
+	return &GoBinaryTargetBuilder{target, spec, options}, nil
 }
 
 // Build the target
@@ -110,35 +117,12 @@ func (builder *GoBinaryTargetBuilder) Build(ctx buildcontext.Context) (artifact.
 	}
 
 	// Copy to install path
-	if builder.spec.Install {
-		log.Debugln("GoBinaryTargetBuilder.Build: Install binary")
-		goPath, err := builder.getGoPath()
-		if err != nil {
-			log.Errorln("Failed to get GOPATH:", err)
-			return nil, fmt.Errorf("Failed to get GOPATH: %v", err)
-		}
-		if goPath == "" {
-			log.Errorln("GOPATH not found, cannot install the binary")
-			return nil, errors.New("GOPATH not found, cannot install the binary")
-		}
-		// Copy the binary
-		rfile, err := os.Open(filepath.Join(outputPath, outputName))
-		if err != nil {
-			log.Errorln("Failed to open output binary file:", err)
-			return nil, fmt.Errorf("Failed to open output binary file: %v", err)
-		}
-		defer rfile.Close()
-		wfile, err := os.OpenFile(filepath.Join(goPath, "bin", outputName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
-		if err != nil {
-			log.Errorln("Failed to create installing binary file:", err)
-			return nil, fmt.Errorf("Failed to create installing binary file: %v", err)
-		}
-		defer wfile.Close()
-		// Copy it
-		_, err = io.Copy(wfile, rfile)
-		if err != nil {
-			log.Errorln("Failed to copy file:", err)
-			return nil, fmt.Errorf("Failed to copy file: %v", err)
+	if builder.spec.Install && !builder.options.NoInstall {
+		if err := builder.installGoBinary(outputPath, outputName); err != nil {
+			if !builder.options.IgnoreInstallError {
+				return nil, err
+			}
+			log.Warnln("Go install error ignored by options")
 		}
 	}
 
@@ -153,4 +137,38 @@ func (builder *GoBinaryTargetBuilder) getGoPath() (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func (builder *GoBinaryTargetBuilder) installGoBinary(outputPath, outputName string) error {
+	log.Debugln("GoBinaryTargetBuilder.Build: Install binary")
+	goPath, err := builder.getGoPath()
+	if err != nil {
+		log.Errorln("Failed to get GOPATH:", err)
+		return fmt.Errorf("Failed to get GOPATH: %v", err)
+	}
+	if goPath == "" {
+		log.Errorln("GOPATH not found, cannot install the binary")
+		return errors.New("GOPATH not found, cannot install the binary")
+	}
+	// Copy the binary
+	rfile, err := os.Open(filepath.Join(outputPath, outputName))
+	if err != nil {
+		log.Errorln("Failed to open output binary file:", err)
+		return fmt.Errorf("Failed to open output binary file: %v", err)
+	}
+	defer rfile.Close()
+	wfile, err := os.OpenFile(filepath.Join(goPath, "bin", outputName), os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0777)
+	if err != nil {
+		log.Errorln("Failed to create installing binary file:", err)
+		return fmt.Errorf("Failed to create installing binary file: %v", err)
+	}
+	defer wfile.Close()
+	// Copy it
+	_, err = io.Copy(wfile, rfile)
+	if err != nil {
+		log.Errorln("Failed to copy file:", err)
+		return fmt.Errorf("Failed to copy file: %v", err)
+	}
+	// Done
+	return nil
 }

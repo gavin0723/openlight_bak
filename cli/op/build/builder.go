@@ -49,6 +49,14 @@ func (builder *Builder) GetCommands() []cli.Command {
 					Name:  "no-go",
 					Usage: "Do not build go dependencies",
 				},
+				cli.BoolFlag{
+					Name:  "no-go-install",
+					Usage: "Do not install go binary",
+				},
+				cli.BoolFlag{
+					Name:  "ignore-go-install-error",
+					Usage: "Ignore go install error",
+				},
 			},
 		},
 		{
@@ -181,6 +189,12 @@ func (builder *Builder) build(c *cli.Context) error {
 	}
 	if c.Bool("no-go") {
 		options = append(options, opbuilder.WithDonotBuildGoDependencyOption())
+	}
+	if c.Bool("no-go-install") {
+		options = append(options, opbuilder.WithDonotInstallGoBinaryOption())
+	}
+	if c.Bool("ignore-go-install-error") {
+		options = append(options, opbuilder.WithIgnoreInstallGoBinaryErrorOption())
 	}
 	// Write tag
 	log.Infoln("Build Tag:", color.YellowString("%v", b.Tag()))
