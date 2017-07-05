@@ -70,9 +70,11 @@ func (o *_BuildTargetDependencyOptions) String() string {
 }
 
 // BuildTargetDependencies build a target's dependencies
-func (builder *Builder) BuildTargetDependencies(name string, options ...BuildTargetDependencyOption) error {
+func (builder *Builder) BuildTargetDependencies(name string, options ...BuildTargetOption) error {
+	var _targetOptions _BuildTargetOption
 	var _options _BuildTargetDependencyOptions
 	for _, option := range options {
+		option.set(&_targetOptions)
 		option.setdep(&_options)
 	}
 	// Get Target
@@ -85,7 +87,7 @@ func (builder *Builder) BuildTargetDependencies(name string, options ...BuildTar
 		return fmt.Errorf("Unknown target [%v]", name)
 	}
 	// Build dep
-	return builder.buildTargetDependencies(target, &_options)
+	return builder.buildTargetDependencies(target, &_targetOptions, &_options)
 }
 
 // DependencyCache stores the installed dependencies (except for the target dependency)
@@ -116,7 +118,7 @@ func (c *_DependencyCache) AddPipModule(module string) {
 	c.pipModules[module] = true
 }
 
-func (builder *Builder) buildTargetDependencies(target *repository.Target, options *_BuildTargetDependencyOptions) error {
+func (builder *Builder) buildTargetDependencies(target *repository.Target, targetOptions *_BuildTargetOption, options *_BuildTargetDependencyOptions) error {
 	if target == nil {
 		return errors.New("Require target")
 	}
@@ -130,17 +132,17 @@ func (builder *Builder) buildTargetDependencies(target *repository.Target, optio
 	for _, depSpec := range target.Spec().Dependencies {
 		if goDepSpec := depSpec.GetGo(); goDepSpec != nil && !options.GetNoGo() {
 			// Build go dependency
-			if err := builder.buildGoDependency(target, goDepSpec, options); err != nil {
+			if err := builder.buildGoDependency(target, goDepSpec, targetOptions, options); err != nil {
 				return err
 			}
 		} else if pipDepSpec := depSpec.GetPip(); pipDepSpec != nil && !options.GetNoPip() {
 			// Build pip dependency
-			if err := builder.buildPipDependency(target, pipDepSpec, options); err != nil {
+			if err := builder.buildPipDependency(target, pipDepSpec, targetOptions, options); err != nil {
 				return err
 			}
 		} else if targetDepSpec := depSpec.GetTarget(); targetDepSpec != nil && !options.GetNoTarget() {
 			// Build target dependency
-			if err := builder.buildTargetDependency(target, targetDepSpec, options); err != nil {
+			if err := builder.buildTargetDependency(target, targetDepSpec, targetOptions, options); err != nil {
 				return err
 			}
 		} else {
@@ -152,7 +154,7 @@ func (builder *Builder) buildTargetDependencies(target *repository.Target, optio
 	return nil
 }
 
-func (builder *Builder) buildGoDependency(sourceTarget *repository.Target, spec *pbSpec.GoDependency, options *_BuildTargetDependencyOptions) error {
+func (builder *Builder) buildGoDependency(sourceTarget *repository.Target, spec *pbSpec.GoDependency, targetOptions *_BuildTargetOption, options *_BuildTargetDependencyOptions) error {
 	if spec.GetPackage() == "" {
 		return errors.New("Require package")
 	}
@@ -186,7 +188,7 @@ func (builder *Builder) buildGoDependency(sourceTarget *repository.Target, spec 
 	return nil
 }
 
-func (builder *Builder) buildPipDependency(sourceTarget *repository.Target, spec *pbSpec.PipDependency, options *_BuildTargetDependencyOptions) error {
+func (builder *Builder) buildPipDependency(sourceTarget *repository.Target, spec *pbSpec.PipDependency, targetOptions *_BuildTargetOption, options *_BuildTargetDependencyOptions) error {
 	if spec.GetModule() == "" {
 		return errors.New("Require module")
 	}
@@ -220,7 +222,7 @@ func (builder *Builder) buildPipDependency(sourceTarget *repository.Target, spec
 	return nil
 }
 
-func (builder *Builder) buildTargetDependency(sourceTarget *repository.Target, spec *pbSpec.TargetDependency, options *_BuildTargetDependencyOptions) error {
+func (builder *Builder) buildTargetDependency(sourceTarget *repository.Target, spec *pbSpec.TargetDependency, targetOptions *_BuildTargetOption, options *_BuildTargetDependencyOptions) error {
 	if sourceTarget == nil {
 		return errors.New("Require source target")
 	}
@@ -291,7 +293,7 @@ func (builder *Builder) buildTargetDependency(sourceTarget *repository.Target, s
 	}
 
 	// Build target
-	var targetOptions _BuildTargetOption
-	targetOptions.noBuild = !options.BuildTarget || !spec.Build
-	return builder.buildTarget(target, &targetOptions, options)
+	newTargetOptions := *targetOptions
+	newTargetOptions.noBuild = !options.BuildTarget || !spec.Build
+	return builder.buildTarget(target, &newTargetOptions, options)
 }

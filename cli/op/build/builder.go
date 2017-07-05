@@ -248,7 +248,7 @@ func (builder *Builder) buildDeps(c *cli.Context) error {
 		return cli.NewExitError(fmt.Sprintf("Failed to create builder: %v", err), 1)
 	}
 	// Create options
-	var options []opbuilder.BuildTargetDependencyOption
+	var options []opbuilder.BuildTargetOption
 	if c.Bool("update") {
 		options = append(options, opbuilder.WithUpdateDependencyOption())
 	}

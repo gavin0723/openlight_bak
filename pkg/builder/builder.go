@@ -119,7 +119,7 @@ func (builder *Builder) buildTarget(target *repository.Target, targetOptions *_B
 	defer func() { builder.unsetTargetBuilding(target) }()
 
 	// Build the dependencies of this target
-	if err := builder.buildTargetDependencies(target, depOptions); err != nil {
+	if err := builder.buildTargetDependencies(target, targetOptions, depOptions); err != nil {
 		return err
 	}
 
