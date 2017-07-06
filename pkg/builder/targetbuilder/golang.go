@@ -104,8 +104,10 @@ func (builder *GoBinaryTargetBuilder) Build(ctx buildcontext.Context) (artifact.
 	}
 
 	// Run command
-	log.Debugln("GoBinaryTargetBuilder.Build: Run command =", cmd.Path, strings.Join(cmd.Args, " "))
+	log.Debugln("GoBinaryTargetBuilder.Build: Run command:", strings.Join(cmd.Args, " "))
 	if ctx.Verbose() {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("Failed to run command: %v", err)
 		}

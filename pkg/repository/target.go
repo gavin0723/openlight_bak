@@ -86,6 +86,14 @@ func (target *Target) InitOutputDir(name string) (string, error) {
 		}
 	} else if !info.IsDir() {
 		return "", fmt.Errorf("Target output path [%v] is not a directory", dirname)
+	} else {
+		// Delete the dir and create a new one
+		if err := os.RemoveAll(dirname); err != nil {
+			return "", fmt.Errorf("Failed to remove directory [%v]: %v", dirname, err)
+		}
+		if err := os.MkdirAll(dirname, os.ModePerm); err != nil {
+			return "", fmt.Errorf("Failed to create directory [%v]: %v", dirname, err)
+		}
 	}
 	// Done
 	return dirname, nil

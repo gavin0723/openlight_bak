@@ -83,6 +83,9 @@ func (repo *LocalRepository) RootPackage() (*Package, error) {
 
 // GetPackage returns the package for a given path in the repository
 func (repo *LocalRepository) GetPackage(path string) (*Package, error) {
+	if filepath.IsAbs(path) {
+		return nil, fmt.Errorf("Invalid package path [%v]. Path must not be a absolute path", path)
+	}
 	if pkg := repo.packages[path]; pkg != nil {
 		return pkg, nil
 	}
@@ -157,5 +160,5 @@ func (repo *LocalRepository) loadPackage(path string) (*Package, error) {
 	if pkgSpec == nil {
 		return nil, errors.New("No package defined")
 	}
-	return newPackage(path, pkgSpec, repo), nil
+	return newPackage(filepath.Join(repo.path, path), pkgSpec, repo), nil
 }

@@ -41,17 +41,17 @@ func (ref *Reference) Find() string {
 	for _, finderSpec := range ref.spec.Finders {
 		finder, err := ref.getFinder(finderSpec)
 		if err != nil {
-			log.Errorln("Reference [%v]: Failed to create finder [%v]: %v", ref.name, finderSpec.Name, err)
+			log.Errorf("Reference [%v]: Failed to create finder [%v]: %v", ref.name, finderSpec.Name, err)
 			continue
 		}
-		log.Debugln("Reference.Find [%v]: Find by [%v]", finderSpec.Name)
+		log.Debugf("Reference.Find [%v]: Find by [%v]", ref.name, finderSpec.Name)
 		// Find
 		path, err := finder.Find()
 		if err != nil {
-			log.Errorln("Reference [%v]: Failed to find by [%v]: %v", ref.name, finderSpec.Name, err)
+			log.Errorf("Reference [%v]: Failed to find by [%v]: %v", ref.name, finderSpec.Name, err)
 		}
 		if path != "" {
-			log.Infoln("Reference [%v]: Find [%v] by [%v]", ref.name, path, finderSpec.Name)
+			log.Infof("Reference [%v]: Find [%v] by [%v]", ref.name, path, finderSpec.Name)
 			return path
 		}
 	}

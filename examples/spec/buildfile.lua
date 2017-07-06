@@ -12,17 +12,17 @@
 --
 
 -- Require
-build = require("build")
+build=require("build")
 
 -- You can include multiple modules. All instructions within these modules will be treated as in this file.
 
 -- Declare the package info and get the package object
 -- NOTE: You cannot create package object and `build.package` must be only called once
-pkg = build.package({
-    name = "Package name used for display",
-    comment = "Some comment text may be useful...",
-    author = "Author info",
-    url = "Url of the package",
+pkg=build.package({
+    name="Package name used for display",
+    comment="Some comment text may be useful...",
+    author="Author info",
+    url="Url of the package",
     })
 
 -- Set options
@@ -33,7 +33,7 @@ pkg:options():set("defaultTargets", { "all" })
 --  * remote (git address), required
 --  * path, optional. Use this attribute to change the root the a repository
 --    NOTE: Path is rarely used
-ref = build.Reference.new({ remote = "github.com/ops-openlight/somepackage" })
+ref=build.Reference.new({ remote="github.com/ops-openlight/somepackage" })
 
 -- Add reference
 -- Format: table with keys:
@@ -41,24 +41,24 @@ ref = build.Reference.new({ remote = "github.com/ops-openlight/somepackage" })
 -- * Reference (object)
 pkg:references():add("somepackage", ref)
 -- You can get the reference in this way:
-ref = pkg:references():get("somepackage")
+ref=pkg:references():get("somepackage")
 
 -- Create finders for references
-finder = build.PythonFinder.new({
-    module = "module1",
+finder=build.PythonFinder.new({
+    module="module1",
     -- Use the parent directory (1 means use the directory of the python package directory. If set to 2, means use the directory of the directory of the python package directory)
-    parent = 1,
+    parent=1,
     })
 ref:finders():add("finder1", finder)
 
-ref:finders():add("finder2", build.GoFinder.new({ package = "testgo" }))
+ref:finders():add("finder2", build.GoFinder.new({ package="testgo" }))
 
 -- Define a command target
 -- Format: table with keys
 --  * command
 --  * args, optional
 --  * workdir, optional
-cmd = build.CommandTarget.new({ command = "make", args = { "build" }, workdir = "./build" })
+cmd=build.CommandTarget.new({ command="make", args={ "build" }, workdir="./build" })
 
 -- Add it
 pkg:targets():add("cmd", cmd)
@@ -68,7 +68,7 @@ pkg:targets():add("cmd", cmd)
 --  * package, go package (to build)
 --  * output (name)
 --  * goVersion, optional
-cli = build.GoBinaryTarget.new({ package = "github.com/ops-openlight/cli/op", output = "op" })
+cli=build.GoBinaryTarget.new({ package="github.com/ops-openlight/cli/op", output="op" })
 
 -- Add it
 pkg:targets():add("cli", cli)
@@ -80,16 +80,16 @@ pkg:targets():add("cli", cli)
 --  * target
 --  * build, optional
 cli:dependent(build.TargetDependency.new({
-    reference = "somepackage",
-    target = "sometarget",
+    reference="somepackage",
+    target="sometarget",
     -- Build the target or just prepare the dependency
-    build = true
+    build=true
     }))
 
 -- Define a go dependency which will be resolved by go dependency rule (not by openlight target dependency rule).
 -- By this approach, openlight build tool could be easily integrated with existing projects (which are not built by openlight)
 -- You specify unlimited packages in one command, and also use multiple dependentOnGo command is ok as well.
-cli:dependent(build.GoDependency.new({ package = "github.com/Sirupsen/logrus" }))
+cli:dependent(build.GoDependency.new({ package="github.com/Sirupsen/logrus" }))
 
 -- Define a python lib target
 -- Python lib target requires python setup.py to build the package. Openlight will run setup.py sdist to build the python setup package.
@@ -97,7 +97,7 @@ cli:dependent(build.GoDependency.new({ package = "github.com/Sirupsen/logrus" })
 --  * workdir, optional
 --  * setup, optional
 --  * output, optional
-pylib = build.PythonLibTarget.new({ workdir = "./", setup = "setup.py", output = "pylib.tgz" })
+pylib=build.PythonLibTarget.new({ workdir="./", setup="setup.py" })
 
 -- Add it
 pkg:targets():add("pylib", pylib)
@@ -107,22 +107,22 @@ pylib:dependent()
 
 -- Define a internal dependency
 pylib:dependent(
-    build.TargetDependency.new({ target = "cli" }),
-    build.TargetDependency.new({ reference = "github.com/ops-openlight/somepackage", target = "some target" })
+    build.TargetDependency.new({ target="cli" }),
+    build.TargetDependency.new({ reference="github.com/ops-openlight/somepackage", target="some target" })
     )
 
 -- Define a python pip dependency
-pylib:dependent(build.PipDependency.new({ module = "module could be resolved by pip" }))
+pylib:dependent(build.PipDependency.new({ module="module could be resolved by pip" }))
 
 -- Define a docker image target
 -- Format: Table with keys:
 --  * repository
 --  * image
-docker = build.DockerImageTarget.new({ repository = "some-repository", image = "dockerimagename" })
+docker=build.DockerImageTarget.new({ repository="some-repository", image="dockerimagename" })
 docker:dependent(build.TargetDependency.new({
-    target = "sometarget",
+    target="sometarget",
     -- Build the target or just prepare the dependency
-    build = true
+    build=true
     }))
 
 -- Add it
@@ -139,15 +139,15 @@ docker:label("key", "value")
 
 -- Docker: ADD
 -- Format: source object, target path
-docker:add(build.File.new({ reference = "some-reference", filenames = { "filename" }}), "/bin/cli")
+docker:add(build.File.new({ reference="some-reference", filenames={ "filename" }}), "/bin/cli")
 -- File could also be used in this way:
-docker:add(build.File.new({ filenames = { "filename" }}), "/bin/cli")
+docker:add(build.File.new({ filenames={ "filename" }}), "/bin/cli")
 
 -- Docker: COPY
 -- Format: source object, target path
-docker:copy(build.Artifact.new({ reference = "some-reference", target = "target name", filenames = { "filename" }}), "/bin/cli")
+docker:copy(build.Artifact.new({ reference="some-reference", target="target name", filenames={ "filename" }}), "/bin/cli")
 -- Artifact could also be used in this way:
-docker:copy(build.Artifact.new({ target = "target name" }), "/bin/cli")
+docker:copy(build.Artifact.new({ target="target name" }), "/bin/cli")
 
 -- Docker: RUN
 -- Format: command
@@ -178,11 +178,11 @@ docker:workdir("/")
 docker:env("key", "value")
 
 -- Define a general target
-all = build.Target.new()
+all=build.Target.new()
 all:dependent(
-    build.TargetDependency.new({ target = "cmd", build = true }),
-    build.TargetDependency.new({ target = "cli", build = true }),
-    build.TargetDependency.new({ target = "pylib", build = true }),
-    build.TargetDependency.new({ target = "image1", build = true })
+    build.TargetDependency.new({ target="cmd", build=true }),
+    build.TargetDependency.new({ target="cli", build=true }),
+    build.TargetDependency.new({ target="pylib", build=true }),
+    build.TargetDependency.new({ target="image1", build=true })
     )
 pkg:targets():add("all", all)

@@ -9,8 +9,6 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
-	"path/filepath"
-
 	"github.com/ops-openlight/openlight/pkg/repository"
 )
 
@@ -44,9 +42,6 @@ func (builder *Builder) resolveReference(ref *repository.Reference) (*repository
 	if path := ref.Find(); path != "" {
 		// Find it
 		log.Infof("Resolve: %v --> %v by finder", ref.Name(), path)
-		if ref.Spec().Path != "" {
-			path = filepath.Join(path, ref.Spec().Path)
-		}
 		// Load repository
 		repo, err := repository.NewLocalRepository(path)
 		if err != nil {

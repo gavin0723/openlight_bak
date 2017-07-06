@@ -68,6 +68,7 @@ func (builder *PythonLibTargetBuilder) Build(ctx buildcontext.Context) (artifact
 	if builder.spec.Workdir != "" {
 		workdir = filepath.Join(workdir, builder.spec.Workdir)
 	}
+	log.Debugln("PythonLibTargetBuilder.Build: Workdir:", workdir)
 	// Get the environment variables
 	gitRepoInfo, err := utils.GetGitRepositoryInfo(builder.target.Path())
 	if err != nil {
@@ -92,13 +93,15 @@ func (builder *PythonLibTargetBuilder) Build(ctx buildcontext.Context) (artifact
 	}
 
 	// Create command
-	cmd := exec.Command("python", scriptFile, "sdist", "-o", outputPath)
+	cmd := exec.Command("python", scriptFile, "sdist", "-d", outputPath)
 	cmd.Dir = workdir
 	cmd.Env = append(os.Environ(), envs...)
 
 	// Run command
-	log.Debugln("PythonLibTargetBuilder.Build: Run command =", cmd.Path, strings.Join(cmd.Args, " "))
+	log.Debugln("PythonLibTargetBuilder.Build: Run command:", strings.Join(cmd.Args, " "))
 	if ctx.Verbose() {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("Failed to run command: %v", err)
 		}
