@@ -155,6 +155,10 @@ func NewCommandTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LValu
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [workdir]: %v", err)
 	}
+	envs, err := params.GetStringSlice("envs")
+	if err != nil {
+		return nil, fmt.Errorf("Invalid parameter [envs]: %v", err)
+	}
 	// Create a new Target
 	target := &CommandTarget{
 		_Target: _Target{
@@ -163,6 +167,7 @@ func NewCommandTargetFromLUA(L *lua.LState, params common.Parameters) (lua.LValu
 					Command: command,
 					Args:    args,
 					Workdir: workdir,
+					Envs:    envs,
 				},
 			},
 		},

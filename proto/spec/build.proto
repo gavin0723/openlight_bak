@@ -140,6 +140,8 @@ message CommandTarget {
     repeated string args = 2;
     // Work dir
     string workdir = 3;
+    // The environments
+    repeated string envs = 4;
 }
 
 // Go bianry target

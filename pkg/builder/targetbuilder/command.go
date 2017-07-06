@@ -73,26 +73,34 @@ func (builder *CommandTargetBuilder) Build(ctx buildcontext.Context) (artifact.A
 	if err != nil {
 		log.Warnf("Failed to get git repository info: %v", err)
 	}
-	envs := []string{
-		fmt.Sprintf("CI_OUTPUT=\"%v\"", outputPath),
-		fmt.Sprintf("CI_BUILD_TIME=\"%v\"", time.Now().Format(time.RFC3339)),
-		fmt.Sprintf("CI_TAG=\"%v\"", ctx.Tag()),
-	}
+	envs := append(os.Environ(),
+		fmt.Sprintf("CI_OUTPUT=%v", outputPath),
+		fmt.Sprintf("CI_BUILD_TIME=%v", time.Now().Format(time.RFC3339)),
+		fmt.Sprintf("CI_TAG=%v", ctx.Tag()),
+	)
 	if gitRepoInfo != nil {
 		envs = append(envs,
-			fmt.Sprintf("CI_BRANCH=\"%v\"", gitRepoInfo.Branch),
-			fmt.Sprintf("CI_COMMIT=\"%v\"", gitRepoInfo.Commit),
-			fmt.Sprintf("CI_COMMIT_TIME=\"%v\"", gitRepoInfo.CommitTime),
+			fmt.Sprintf("CI_BRANCH=%v", gitRepoInfo.Branch),
+			fmt.Sprintf("CI_COMMIT=%v", gitRepoInfo.Commit),
+			fmt.Sprintf("CI_COMMIT_TIME=%v", gitRepoInfo.CommitTime),
 		)
 	}
+	for _, env := range builder.spec.GetEnvs() {
+		envs = append(envs, env)
+	}
 	// Create the command
-	cmd := exec.Command(builder.spec.Command, builder.spec.Args...)
+	cmd := exec.Command(builder.spec.Command, builder.explainArgs(envs, builder.spec.Args)...)
 	cmd.Dir = workdir
-	cmd.Env = append(os.Environ(), envs...)
-
-	// Run command
-	log.Debugln("CommandTargetBuilder.Build: Run command =", cmd.Path, strings.Join(cmd.Args, " "))
+	cmd.Env = envs
+	// Show debug
 	if ctx.Verbose() {
+		log.Debugln("CommandTargetBuilder.Build: Environment variables:\n\t", strings.Join(envs, "\n\t"))
+		log.Debugln("CommandTargetBuilder.Build: Run command:", strings.Join(cmd.Args, " "))
+	}
+	// Run command
+	if ctx.Verbose() {
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
 		if err := cmd.Run(); err != nil {
 			return nil, fmt.Errorf("Failed to run command: %v", err)
 		}
@@ -105,4 +113,23 @@ func (builder *CommandTargetBuilder) Build(ctx buildcontext.Context) (artifact.A
 
 	// Create the artifact
 	return artifact.NewFileArtifact(outputPath), nil
+}
+
+func (builder *CommandTargetBuilder) explainArgs(envs []string, args []string) []string {
+	envMap := make(map[string]string)
+	for _, env := range envs {
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) == 1 {
+			envMap[parts[0]] = ""
+		} else {
+			envMap[parts[0]] = parts[1]
+		}
+	}
+	// Explain
+	var explainedArgs []string
+	for _, arg := range args {
+		explainedArgs = append(explainedArgs, os.Expand(arg, func(key string) string { return envMap[key] }))
+	}
+	// Done
+	return explainedArgs
 }
