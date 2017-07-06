@@ -565,7 +565,8 @@ func (s *_DockerImageFeedStream) writePath2Tar(p string, targetPath string, writ
 		return walkThroughPath(p, targetPath)
 	}
 	// A file
-	return s.writeFile2Tar(p, info, targetPath, writer)
+	// NOTE: In this case. We must wrap the target path to preserve the filename
+	return s.writeFile2Tar(p, info, filepath.Join(targetPath, filepath.Base(p)), writer)
 }
 
 func (s *_DockerImageFeedStream) writeFile2Tar(p string, info os.FileInfo, name string, writer *tar.Writer) error {
