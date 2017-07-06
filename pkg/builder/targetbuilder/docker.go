@@ -335,6 +335,10 @@ func (builder *DockerImageTargetBuilder) feedStreamForAddCopy(feedStream *_Docke
 			}
 			localFile = result.Artifact().GetPath()
 		}
+		// Check filename
+		if art.GetFilename() != "" {
+			localFile = filepath.Join(localFile, art.GetFilename())
+		}
 	} else {
 		// No defined
 		return errors.New("Invalid docker command. Add / Copy requires specific file source")
@@ -522,6 +526,7 @@ func (s *_DockerImageFeedStream) writePath2Tar(p string, targetPath string, writ
 	// Check a directory or file
 	if info.IsDir() {
 		// A directory
+		// NOTE: The top directory name will not be included in the tar file
 		var walkThroughPath func(dirPath, targetDirPath string) error
 		walkThroughPath = func(dirPath, targetDirPath string) error {
 			// The filepath.Walk will not follow the symbol link

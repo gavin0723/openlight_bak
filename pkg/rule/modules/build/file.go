@@ -57,9 +57,6 @@ func NewFileFromLUA(L *lua.LState, params common.Parameters) (lua.LValue, error)
 	if err != nil {
 		return nil, fmt.Errorf("Invalid parameter [filename]: %v", err)
 	}
-	if filename == "" {
-		return nil, errors.New("Require filename")
-	}
 	// Create file source
 	f := &FileSource{
 		Source: &pbSpec.FileSource_File{
