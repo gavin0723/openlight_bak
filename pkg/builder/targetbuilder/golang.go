@@ -152,6 +152,7 @@ func (builder *GoBinaryTargetBuilder) installGoBinary(outputPath, outputName str
 		log.Errorln("GOPATH not found, cannot install the binary")
 		return errors.New("GOPATH not found, cannot install the binary")
 	}
+	installTargetPath := filepath.Join(goPath, "bin", outputName)
 	// Copy the binary
 	rfile, err := os.Open(filepath.Join(outputPath, outputName))
 	if err != nil {
@@ -164,7 +165,16 @@ func (builder *GoBinaryTargetBuilder) installGoBinary(outputPath, outputName str
 		log.Errorln("Failed to stat opened output file:", err)
 		return fmt.Errorf("Failed to stat opened output file: %v", err)
 	}
-	wfile, err := os.OpenFile(filepath.Join(goPath, "bin", outputName), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, rfileInfo.Mode())
+	_, err = os.Stat(installTargetPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("Failed to stat output file: %v", err)
+	} else if err == nil {
+		// Remove the file
+		if err := os.Remove(installTargetPath); err != nil {
+			return fmt.Errorf("Failed to remove previous installed binary: %v", err)
+		}
+	}
+	wfile, err := os.OpenFile(installTargetPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, rfileInfo.Mode())
 	if err != nil {
 		log.Errorln("Failed to create installing binary file:", err)
 		return fmt.Errorf("Failed to create installing binary file: %v", err)
