@@ -17,13 +17,13 @@ import (
 )
 
 var (
-	buildBranch    string
-	buildCommit    string
-	buildCommtTime string
-	buildTime      string
-	buildTag       string
+	buildBranch     string
+	buildCommit     string
+	buildCommitTime string
+	buildTime       string
+	buildTag        string
 	// Version The version string
-	Version = fmt.Sprintf("Branch [%v] Commit [%v] Commit Time [%v] Build Time [%v] Tag [%v]", buildBranch, buildCommit, buildCommtTime, buildTime, buildTag)
+	Version = fmt.Sprintf("Branch [%v] Commit [%v] Commit Time [%v] Build Time [%v] Tag [%v]", buildBranch, buildCommit, buildCommitTime, buildTime, buildTag)
 )
 
 func main() {
